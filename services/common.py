@@ -1,0 +1,51 @@
+import os
+from datetime import datetime, timedelta, timezone
+
+import jwt
+import psycopg
+from psycopg.rows import dict_row
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.responses import JSONResponse
+from test_db import load_connections, CONNECTION_FILE
+
+
+def database(name):
+    url = os.getenv(name.upper() + '_URL')
+    if not url:
+        url = load_connections(CONNECTION_FILE)[name]
+    return psycopg.connect(url, connect_timeout=10, row_factory=dict_row)
+
+
+def secret():
+    value = os.environ.get('JWT_SECRET')
+    if not value:
+        raise RuntimeError('Khởi chạy bằng py run_local.py hoặc đặt JWT_SECRET.')
+    return value
+
+
+def token_for(user_id):
+    return jwt.encode({'sub': str(user_id), 'exp': datetime.now(timezone.utc) + timedelta(hours=1)}, secret(), algorithm='HS256')
+
+
+def current_user(credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))):
+    if not credentials:
+        raise HTTPException(401, 'Vui lòng đăng nhập')
+    try:
+        payload = jwt.decode(credentials.credentials, secret(), algorithms=['HS256'], options={'require': ['exp', 'sub']})
+        return int(payload['sub'])
+    except (jwt.InvalidTokenError, ValueError, TypeError):
+        raise HTTPException(401, 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn')
+
+
+def make_app(title):
+    app = FastAPI(title=title)
+
+    @app.exception_handler(psycopg.Error)
+    async def database_error(request, exc):
+        return JSONResponse(status_code=503, content={'detail': 'Không truy cập được database. Kiểm tra cấu hình kết nối.'})
+
+    @app.get('/health')
+    def health():
+        return {'status': 'ok'}
+    return app
