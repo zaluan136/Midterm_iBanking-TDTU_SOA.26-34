@@ -1,5 +1,20 @@
 # iBanking – bản thử đăng nhập và tra học phí
 
+## Thanh toán với OTP placeholder
+
+Đã thêm Payment Service :8004. Trước khi chạy bản này, dùng đúng Python đã cài dependencies:
+
+```powershell
+python migrate_payment.py
+python run_local.py
+```
+
+Migration bổ sung bảng ghi nhận trừ/hoàn tiền và mã giao dịch gạch nợ, không reset dữ liệu. Trên UI, tra MSSV → Thanh toán → nhập OTP `123456` → Xác nhận. Đây là OTP cố định chỉ để thử luồng, chưa đáp ứng yêu cầu OTP/email của rubric. Launcher local bật `DEMO_OTP=1`; chạy Payment riêng mà không bật cờ này sẽ không xác nhận được. Thao tác thực sự cập nhật số dư và học phí trong database demo.
+
+Nút xem giao dịch cho phép tiếp tục giao dịch đang chờ sau khi tải lại trang hoặc gián đoạn mạng. Giao dịch chờ OTP hết hiệu lực sau 5 phút; giao dịch đã bắt đầu xử lý được giữ lại để thử tiếp. Các thao tác trừ tiền, hoàn tiền và gạch nợ nhận mã giao dịch để tránh thực hiện lặp. Khôi phục hiện cần người dùng bấm tiếp tục; chưa có tác vụ tự động phục hồi. Nếu học phí đã được người khác trả, giao dịch sẽ hoàn tiền và có trạng thái `refunded`.
+
+Thử với alice/SV001; sau thành công tra lại học phí, xem số dư và lịch sử. Thử OTP sai, thiếu số dư, xác nhận lại cùng giao dịch và hai tài khoản cùng trả một khoản. Không dùng lại khoản đã thanh toán để thử một lần thanh toán mới.
+
 Python 3.10+. Ba tiến trình độc lập: Gateway/UI :8000, Auth–Account :8001 và Tuition :8003. Gateway gọi các service qua HTTP; mỗi service dùng database riêng. Chưa triển khai thanh toán, OTP hoặc email.
 
 ## Chạy trên Windows / VS Code

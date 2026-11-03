@@ -7,6 +7,11 @@ from services.common import make_app, current_user
 app = make_app('iBanking Gateway')
 
 
+@app.api_route('/api/payment/{path:path}', methods=['GET', 'POST'], dependencies=[Depends(current_user)])
+async def payment(path: str, request: Request):
+    return await forward(request, 8004)
+
+
 async def forward(request, port):
     try:
         async with httpx.AsyncClient(timeout=20) as client:
