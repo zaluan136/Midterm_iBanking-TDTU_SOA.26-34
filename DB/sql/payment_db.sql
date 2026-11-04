@@ -9,7 +9,8 @@ CREATE TABLE payment_transaction (
     status VARCHAR(30) DEFAULT 'pending_otp' 
         CHECK (status IN ('pending_otp', 'processing', 'success', 'failed', 'expired', 'refunded')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP
+    completed_at TIMESTAMP,
+    email_sent BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX idx_txn_payer ON payment_transaction(payer_user_id, created_at DESC);

@@ -1,10 +1,11 @@
 import os
+import hmac
 from datetime import datetime, timedelta, timezone
 
 import jwt
 import psycopg
 from psycopg.rows import dict_row
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import JSONResponse
 from test_db import load_connections, CONNECTION_FILE
@@ -36,6 +37,12 @@ def current_user(credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(
         return int(payload['sub'])
     except (jwt.InvalidTokenError, ValueError, TypeError):
         raise HTTPException(401, 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn')
+
+
+def require_service_token(token: str | None = Header(default=None, alias='X-Service-Token')):
+    expected = os.environ.get('SERVICE_TOKEN')
+    if not expected or not token or not hmac.compare_digest(token, expected):
+        raise HTTPException(401, 'Service authentication required')
 
 
 def make_app(title):
