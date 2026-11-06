@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 from services.common import make_app, database, token_for, current_user, require_service_token
 
 app = make_app('iBanking Auth–Account')
+from services.demo_admin import attach_accounts
+attach_accounts(app)
 
 
 class Login(BaseModel):

@@ -8,6 +8,7 @@ from pathlib import Path
 
 if __name__ == '__main__':
     env = os.environ.copy()
+    env.setdefault('DEMO_ADMIN', '1')
     env.setdefault('JWT_SECRET', secrets.token_urlsafe(48))
     env.setdefault('SERVICE_TOKEN', secrets.token_urlsafe(48))
     env.setdefault('OTP_SECRET', secrets.token_urlsafe(48))

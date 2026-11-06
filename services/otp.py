@@ -3,7 +3,9 @@ import hashlib
 import hmac
 import os
 import secrets
+from pathlib import Path
 from email.message import EmailMessage
+from dotenv import load_dotenv
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -11,6 +13,8 @@ from decimal import Decimal
 from pydantic import BaseModel, EmailStr, Field
 
 from services.common import database, make_app, require_service_token
+
+load_dotenv(Path(__file__).resolve().parents[1] / '.env.gmail')
 
 app = make_app('iBanking OTP and email')
 
@@ -79,6 +83,7 @@ async def send_email(recipient: str, subject: str, content: str):
         )
         if response.is_error:
             raise HTTPException(503, 'Gmail API không gửi được email; vui lòng thử lại.')
+        return response.json().get('id')
 
 
 @app.post('/internal/otp', dependencies=[Depends(require_service_token)])

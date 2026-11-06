@@ -1,0 +1,27 @@
+# Local credentials and environment settings
+DB/connection string.txt
+.env
+.env.*
+client_secret_*.json
+token.json
+!.env.example
+
+# Python and editor output
+__pycache__/
+*.py[cod]
+.venv/
+.venv-*/
+tempCodeRunnerFile.py
+.pytest_cache/
+.vscode/
+
+# Local runtime files
+*.log
+*.sqlite3
+
+# Local diagnostic files and superseded helpers (not part of the submission)
+test_*.py
+check_schema.py
+migrate_payment.py
+services/internal_payment.py
+.publish-worktree/

@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field
 from services.common import make_app, database, current_user, require_service_token
 
 app = make_app('iBanking Tuition')
+from services.demo_admin import attach_tuition
+attach_tuition(app)
 
 
 class PaymentMark(BaseModel):

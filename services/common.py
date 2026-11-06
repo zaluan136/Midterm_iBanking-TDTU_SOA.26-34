@@ -1,5 +1,6 @@
 import os
 import hmac
+import logging
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -8,7 +9,9 @@ from psycopg.rows import dict_row
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import JSONResponse
-from test_db import load_connections, CONNECTION_FILE
+from services.config import load_connections, CONNECTION_FILE
+
+logger = logging.getLogger('ibanking.database')
 
 
 def database(name):
@@ -50,6 +53,11 @@ def make_app(title):
 
     @app.exception_handler(psycopg.Error)
     async def database_error(request, exc):
+        diag = getattr(exc, 'diag', None)
+        logger.error('Database error on %s %s: type=%s sqlstate=%s table=%s column=%s constraint=%s',
+                     request.method, request.url.path, type(exc).__name__,
+                     getattr(exc, 'sqlstate', None), getattr(diag, 'table_name', None),
+                     getattr(diag, 'column_name', None), getattr(diag, 'constraint_name', None))
         return JSONResponse(status_code=503, content={'detail': 'Không truy cập được database. Kiểm tra cấu hình kết nối.'})
 
     @app.get('/health')

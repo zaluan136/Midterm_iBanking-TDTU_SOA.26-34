@@ -1,15 +1,29 @@
 from pathlib import Path
 import httpx
-from fastapi import Request, Depends
+import os
+from fastapi import Request, Depends, HTTPException
 from fastapi.responses import FileResponse, Response, JSONResponse
 from services.common import make_app, current_user
 
 app = make_app('iBanking Gateway')
 
+@app.api_route('/api/demo/{resource}', methods=['GET','POST'], dependencies=[Depends(current_user)])
+async def demo(resource: str, request: Request):
+    if os.getenv('DEMO_ADMIN') != '1' or resource not in ('accounts','tuition'): raise HTTPException(404)
+    return await forward(request,8001 if resource=='accounts' else 8003)
+
+@app.get('/app.js')
+def script():
+    return FileResponse(Path(__file__).resolve().parents[1] / 'web' / 'app.js',media_type='application/javascript')
+
+@app.get('/app.css')
+def stylesheet():
+    return FileResponse(Path(__file__).resolve().parents[1] / 'web' / 'app.css',media_type='text/css')
+
 
 async def forward(request, port):
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=120) as client:
             target = f'http://127.0.0.1:{port}{request.url.path}'
             if request.url.query:
                 target += '?' + request.url.query

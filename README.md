@@ -1,47 +1,123 @@
-# iBanking – phân hệ thanh toán học phí
+# iBanking · Thanh toán học phí
 
-Python 3.10+. Năm tiến trình độc lập: Gateway/UI :8000, Auth–Account :8001, Payment :8002, Tuition :8003 và OTP/Email :8004. Gateway gọi các service qua HTTP; mỗi service dùng database riêng. Payment điều phối giao dịch; Account giữ số dư theo mã giao dịch; Tuition chỉ cho phép một lần chuyển khoản phí sang đã thanh toán.
+Đồ án giữa kỳ SOA: đăng nhập, tra cứu MSSV, thanh toán toàn bộ khoản học phí, xác thực OTP qua email và xem lịch sử giao dịch. Backend Python/FastAPI, dữ liệu PostgreSQL trên NeonDB, UI HTML/CSS/JavaScript.
 
-## Chạy trên Windows / VS Code
+## Kiến trúc
 
-Mở terminal tại thư mục dự án:
+| Thành phần | Cổng local | Database sở hữu |
+|---|---:|---|
+| API Gateway + UI | 8000 | Không có |
+| Auth–Account | 8001 | auth_database |
+| Payment | 8002 | payment_database |
+| Tuition | 8003 | tuition_database |
+| OTP + email | 8004 | otp_database |
+
+Có **4 service nghiệp vụ, 4 database và 1 Gateway**. Service giao tiếp qua HTTP với `X-Service-Token`; public API dùng JWT. Các ID liên database là liên kết logic; không tạo khóa ngoại giữa các database. Account giữ tiền theo mã giao dịch, Tuition gạch nợ có điều kiện, Payment điều phối commit/release và lưu trạng thái. Lỗi kết nối có thể tiếp tục qua cùng giao dịch; chưa có worker tự động khôi phục.
+
+## 1. Cài đặt
+
+Yêu cầu Python 3.10+ và 4 database PostgreSQL. Trong PowerShell tại thư mục dự án:
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Các lệnh bên dưới dùng Python trong `.venv`, không cần kích hoạt môi trường.
+
+## 2. Cấu hình database
+
+Tạo file local `DB/connection string.txt` (Git bỏ qua), gồm tên cấu hình và URL tương ứng ở dòng kế tiếp:
+
+```text
+auth_database
+postgresql://USER:PASSWORD@AUTH_HOST/neondb?sslmode=require
+
+tuition_database
+postgresql://USER:PASSWORD@TUITION_HOST/neondb?sslmode=require
+
+payment_database
+postgresql://USER:PASSWORD@PAYMENT_HOST/neondb?sslmode=require
+
+otp_database
+postgresql://USER:PASSWORD@OTP_HOST/neondb?sslmode=require
+```
+
+Dùng URL từ Neon của từng database. Có thể thay bằng biến môi trường `AUTH_DATABASE_URL`, `TUITION_DATABASE_URL`, `PAYMENT_DATABASE_URL`, `OTP_DATABASE_URL`.
+
+- Database mới: chạy từng file trong `DB/sql/` trên đúng database tương ứng, rồi seed.
+- Database đã dùng bản cũ: chạy migration dưới đây; không chạy lại `CREATE TABLE` của schema mới.
+
+```powershell
+.\.venv\Scripts\python.exe apply_schema_updates.py
 .\.venv\Scripts\python.exe seed_demo.py
+```
+
+Migration giữ dữ liệu, thêm bảng/cột cần thiết và bỏ các khóa ngoại cũ đặt sai database. Mỗi database dùng một transaction riêng; nếu một bước lỗi, sửa nguyên nhân rồi chạy lại. Seed bổ sung tài khoản/học phí thiếu và sửa hash placeholder, không reset số dư hay mật khẩu hợp lệ đang có.
+
+Tài khoản mẫu: `alice`, `bob`, `charlie`; mật khẩu mới mặc định `Demo123!`. MSSV: `SV001`–`SV004`. Email `example.com` là dữ liệu mẫu: đổi sang email nhận được thư bằng Công cụ demo.
+
+## 3. Thiết lập Gmail gửi OTP
+
+1. Trong Google Cloud, tạo project và bật Gmail API.
+2. Google Auth Platform: cấu hình ứng dụng External/Testing và thêm Gmail gửi thư vào Test users.
+3. Tạo OAuth Client loại Desktop app, tải `client_secret_*.json` vào thư mục gốc dự án.
+4. Chạy lệnh dưới, chọn đúng Gmail gửi thư và cấp quyền `gmail.send` trên trình duyệt:
+
+```powershell
+.\.venv\Scripts\python.exe setup_gmail.py
+```
+
+Nhập lại đúng Gmail vừa cấp quyền. Script lưu `.env.gmail` ngoài Git; OTP Service tự đọc file này. Các biến sử dụng: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GMAIL_SENDER`. Không commit file OAuth hoặc token. Khi app còn Testing, token có thể hết hạn sau 7 ngày; nếu cần cấp quyền lại, đổi tên file `.env.gmail` cũ rồi chạy setup lần nữa. Thư demo có thể nằm trong Spam.
+
+## 4. Khởi chạy và sử dụng
+
+```powershell
 .\.venv\Scripts\python.exe run_local.py
 ```
 
-Mở http://127.0.0.1:8000. Dừng bằng Ctrl+C. Không cần kích hoạt virtual environment.
+Mở **http://127.0.0.1:8000/**. Các cổng 8001–8004 phục vụ API, không có trang chủ. Ctrl+C dừng toàn bộ tiến trình. Sau khi đổi code/config, khởi động lại và Ctrl+F5 trình duyệt.
 
-File `DB/connection string.txt` giữ tên database ở một dòng và URL PostgreSQL ở dòng kế tiếp: `auth_database`, `otp_database`, `tuition_database`, `payment_database`. Có thể thay bằng `AUTH_DATABASE_URL`, `OTP_DATABASE_URL`, `TUITION_DATABASE_URL` và `PAYMENT_DATABASE_URL`.
+Đăng nhập → tra MSSV → chọn khoản chưa trả → xác nhận toàn bộ số tiền → nhập OTP trong email → xem kết quả và lịch sử. Nếu gửi OTP lỗi, dùng Gửi lại OTP trên cùng giao dịch. Nếu phản hồi bị chậm, kiểm tra lại trạng thái giao dịch trước khi tạo giao dịch mới. Giao dịch success đã trừ số dư và gạch nợ; lỗi gửi biên nhận không đảo ngược thanh toán.
 
-Schema phải được tạo sẵn bằng các file `DB/sql/`. Nếu database đã có schema cũ, chạy các migration trong `DB/migrations/` trên đúng database được ghi trong từng file. Script seed bổ sung dữ liệu thiếu, không reset số dư và không đổi mật khẩu hợp lệ đang có.
+## Công cụ demo
 
-## Gmail API
+Nút **Công cụ demo** nằm trên thanh đầu trang sau khi đăng nhập.
 
-OTP và email xác nhận dùng Gmail API `users.messages.send`. Tạo Google Cloud project, bật Gmail API, tạo OAuth client và lấy refresh token với scope `https://www.googleapis.com/auth/gmail.send`. Cấu hình các biến môi trường trong terminal trước khi chạy launcher:
+- Chọn tài khoản trong danh sách để sửa username, họ tên, email, điện thoại, mật khẩu và số dư. Sửa theo ID nên đổi username vẫn giữ lịch sử. Để trống mật khẩu khi muốn giữ mật khẩu cũ.
+- Chọn Tạo mới để thêm tài khoản. Username không được trùng; tài khoản mới cần mật khẩu.
+- Thêm khoản học phí theo MSSV, tên sinh viên, học kỳ và số tiền; mỗi lần lưu tạo một khoản chưa thanh toán mới.
+- Chặn sửa tài khoản khi còn khoản giữ tiền chưa hoàn tất.
+
+Đây là công cụ chuẩn bị dữ liệu **local**, không phải phân quyền admin production. Mọi tài khoản đã đăng nhập đều có thể dùng khi `DEMO_ADMIN=1`; dữ liệu được ghi thật vào NeonDB. Launcher mặc định bật demo. Để tắt:
 
 ```powershell
-$env:GOOGLE_CLIENT_ID = "..."
-$env:GOOGLE_CLIENT_SECRET = "..."
-$env:GOOGLE_REFRESH_TOKEN = "..."
-$env:GMAIL_SENDER = "your-sending-account@gmail.com"
+$env:DEMO_ADMIN='0'
+.\.venv\Scripts\python.exe run_local.py
 ```
 
-Không lưu OAuth secrets trong source code hoặc Git. Khi chưa cấu hình, giao dịch vẫn được tạo ở trạng thái chờ OTP; có thể gửi lại OTP sau khi cấu hình Gmail.
+Chỉ dùng bản này local. JWT và các khóa service tự tạo mỗi lần khởi động nếu chưa cấu hình; đặt `JWT_SECRET`, `SERVICE_TOKEN`, `OTP_SECRET` ổn định nếu muốn giữ phiên/OTP qua lần khởi động lại.
 
-## API nghiệp vụ
+## API chính
 
-- `POST /api/auth/login`, `GET /api/account/info`
-- `GET /api/tuition/{mssv}`
-- `POST /api/payments` với `{ "tuition_fee_id": 1 }` để tạo giao dịch và gửi OTP
-- `POST /api/payments/{transaction_code}/otp/resend` để gửi lại OTP
-- `POST /api/payments/{transaction_code}/confirm` với `{ "code": "123456" }` để xác nhận
-- `POST /api/payments/{transaction_code}/receipt/resend` để gửi lại biên nhận nếu thanh toán đã thành công nhưng email tạm lỗi
-- `GET /api/payments/{transaction_code}` để xem trạng thái; `GET /api/account/transactions` để xem lịch sử
+| Method | URI | Chức năng |
+|---|---|---|
+| POST | /api/auth/login | Đăng nhập |
+| GET | /api/account/info | Thông tin và số dư |
+| GET | /api/tuition/{mssv} | Tra cứu học phí |
+| POST | /api/payments | Tạo giao dịch, yêu cầu gửi OTP |
+| POST | /api/payments/{code}/otp/resend | Gửi lại OTP |
+| POST | /api/payments/{code}/confirm | Xác nhận với body `{"code":"mã OTP thực"}` |
+| GET | /api/payments/{code} | Chi tiết/trạng thái |
+| GET | /api/account/transactions | Lịch sử |
+| POST | /api/payments/{code}/receipt/resend | Gửi biên nhận nếu chưa gửi |
 
-Các API nghiệp vụ cần bearer token từ bước đăng nhập. API nội bộ giữa services yêu cầu `X-Service-Token` và không được expose qua Gateway. Swagger: http://127.0.0.1:8001/docs, http://127.0.0.1:8002/docs, http://127.0.0.1:8003/docs và http://127.0.0.1:8004/docs.
+Swagger của từng service: `http://127.0.0.1:<port>/docs`. Public API trừ login yêu cầu Bearer JWT. Các endpoint `/api/demo/*` chỉ bật trong chế độ demo và yêu cầu đăng nhập.
 
-Tài khoản demo mới: `alice`, `bob`, `charlie`; mật khẩu `Demo123!`. Email example.com là dữ liệu mẫu, cần đổi sang email nhận được trước khi kiểm tra OTP. Tra cứu `SV001`–`SV004`; SV004 đã thanh toán. JWT hết hạn sau một giờ; khởi động lại launcher làm mất hiệu lực phiên cũ. Chỉ chạy local; chưa cấu hình triển khai ra Internet.
+## Kiểm tra trước buổi demo
+
+Kiểm tra một giao dịch thành công, OTP sai/hết hạn, không đủ số dư, khoản đã trả, xác nhận lặp và tiếp tục giao dịch sau gián đoạn. Đối chiếu số dư, trạng thái học phí và lịch sử. Hai tình huống concurrency cần demo riêng: nhiều giao dịch dùng cùng số dư và nhiều tài khoản cùng trả một khoản học phí. Code có cơ chế xử lý nhưng chưa có báo cáo kiểm thử concurrency kèm bản này.
+
+## Các file được giữ ngoài Git
+
+Connection string, `.env*`, OAuth JSON/token, `.venv*`, `__pycache__`, file test/chẩn đoán và script cũ. App đọc cấu hình từ `services/config.py`, không phụ thuộc file test. Schema/migration, setup Gmail và seed được giữ lại để thành viên khác chạy được.
