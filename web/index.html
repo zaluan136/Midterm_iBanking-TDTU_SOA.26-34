@@ -1,1 +1,220 @@
-<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>iBanking</title><style>*{box-sizing:border-box}body{background:#f1f5fa;color:#22354d;font:16px system-ui;margin:0}main{max-width:1000px;margin:32px auto;padding:0 20px}section{background:white;border:1px solid #dce5f0;padding:24px;border-radius:16px;margin:20px 0}h2{font-size:21px}label{display:block;margin:12px 0}input,select{display:block;width:100%;border:1px solid #bdcbdd;padding:12px;border-radius:8px;font:inherit;margin-top:5px}button{font:inherit;padding:11px 16px;margin:6px 8px 6px 0;border:0;border-radius:8px;background:#1a60bd;color:white;cursor:pointer}button:disabled{opacity:.5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px}.item{padding:16px 0;border-bottom:1px solid #eee;overflow-wrap:anywhere}small{color:#64748b}#notice{white-space:pre-wrap;color:#964400}code{font-size:13px}[hidden]{display:none!important}</style></head><body><main><h1>iBanking · Đóng học phí</h1><p id="notice" role="status"></p><button id="logout" hidden>Đăng xuất</button><section id="login"><h2>Đăng nhập</h2><form id="loginForm"><label>Username<input name="username" required autocomplete="username"></label><label>Mật khẩu<input name="password" type="password" required autocomplete="current-password"></label><button>Đăng nhập</button></form></section><div id="workspace" hidden><section><h2>Tài khoản</h2><div id="account"></div></section><section><h2>Tra cứu học phí</h2><form id="lookup"><label>Mã sinh viên<input name="mssv" required maxlength="20" placeholder="SV003"></label><button>Tra cứu</button></form><div id="fees"></div></section><section id="payment" hidden><h2>Xác nhận thanh toán</h2><p id="paymentInfo"></p><p id="paymentResult"></p><form id="otpForm"><label>OTP nhận qua email<input name="code" pattern="[0-9]{6}" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required></label><button>Xác nhận / tiếp tục</button><button id="resend" type="button">Gửi lại OTP</button><button id="checkStatus" type="button">Kiểm tra trạng thái</button></form></section><section><h2>Lịch sử giao dịch</h2><button id="historyRefresh">Làm mới</button><div id="history"></div></section><section><button id="demoToggle">Công cụ demo</button><div id="demo" hidden><p>Chế độ demo local: người đã đăng nhập có thể chuẩn bị dữ liệu. Thay đổi lưu trực tiếp trên NeonDB.</p><div class="grid"><form id="accountForm"><h2>Thêm / sửa tài khoản</h2><label>Chọn tài khoản<select id="accounts"></select></label><label>Username<input name="username" required maxlength="50"></label><label>Họ tên<input name="full_name" required maxlength="100"></label><label>Email nhận OTP<input name="email" type="email" required></label><label>Điện thoại<input name="phone" maxlength="15"></label><label>Số dư mới (VND)<input name="balance" type="number" min="0" step="0.01" required></label><label>Mật khẩu mới<input name="password" type="password" minlength="6" autocomplete="new-password"></label><small>Để trống mật khẩu khi muốn giữ mật khẩu cũ.</small><br><button>Lưu tài khoản</button></form><form id="feeForm"><h2>Thêm học phí</h2><label>MSSV<input name="mssv" required maxlength="20"></label><label>Tên sinh viên<input name="student_name" required maxlength="100"></label><label>Học kỳ<input name="semester" required maxlength="50"></label><label>Số tiền (VND)<input name="amount" type="number" min="0.01" step="0.01" required></label><small>Mỗi lần lưu tạo một khoản chưa thanh toán mới.</small><br><button>Thêm học phí</button></form></div></div></section></div></main><script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>iBanking</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background: #f1f5fa;
+        color: #22354d;
+        font: 16px system-ui;
+        margin: 0;
+      }
+      main {
+        max-width: 1000px;
+        margin: 32px auto;
+        padding: 0 20px;
+      }
+      section {
+        background: white;
+        border: 1px solid #dce5f0;
+        padding: 24px;
+        border-radius: 16px;
+        margin: 20px 0;
+      }
+      h2 {
+        font-size: 21px;
+      }
+      label {
+        display: block;
+        margin: 12px 0;
+      }
+      input,
+      select {
+        display: block;
+        width: 100%;
+        border: 1px solid #bdcbdd;
+        padding: 12px;
+        border-radius: 8px;
+        font: inherit;
+        margin-top: 5px;
+      }
+      button {
+        font: inherit;
+        padding: 11px 16px;
+        margin: 6px 8px 6px 0;
+        border: 0;
+        border-radius: 8px;
+        background: #1a60bd;
+        color: white;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 24px;
+      }
+      .item {
+        padding: 16px 0;
+        border-bottom: 1px solid #eee;
+        overflow-wrap: anywhere;
+      }
+      small {
+        color: #64748b;
+      }
+      #notice {
+        white-space: pre-wrap;
+        color: #964400;
+      }
+      code {
+        font-size: 13px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>iBanking · Đóng học phí</h1>
+      <p id="notice" role="status"></p>
+      <button id="logout" hidden>Đăng xuất</button>
+      <section id="login">
+        <h2>Đăng nhập</h2>
+        <form id="loginForm">
+          <label
+            >Username<input
+              name="username"
+              required
+              autocomplete="username" /></label
+          ><label
+            >Mật khẩu<input
+              name="password"
+              type="password"
+              required
+              autocomplete="current-password" /></label
+          ><button>Đăng nhập</button>
+        </form>
+      </section>
+      <div id="workspace" hidden>
+        <section>
+          <h2>Tài khoản</h2>
+          <div id="account"></div>
+        </section>
+        <section>
+          <h2>Tra cứu học phí</h2>
+          <form id="lookup">
+            <label
+              >Mã sinh viên<input
+                name="mssv"
+                required
+                maxlength="20"
+                placeholder="SV003" /></label
+            ><button>Tra cứu</button>
+          </form>
+          <div id="fees"></div>
+        </section>
+        <section id="payment" hidden>
+          <h2>Xác nhận thanh toán</h2>
+          <p id="paymentInfo"></p>
+          <p id="paymentResult"></p>
+          <form id="otpForm">
+            <label
+              >OTP nhận qua email<input
+                name="code"
+                pattern="[0-9]{6}"
+                maxlength="6"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                required /></label
+            ><button>Xác nhận / tiếp tục</button
+            ><button id="resend" type="button">Gửi lại OTP</button
+            ><button id="checkStatus" type="button">Kiểm tra trạng thái</button>
+          </form>
+        </section>
+        <section>
+          <h2>Lịch sử giao dịch</h2>
+          <button id="historyRefresh">Làm mới</button>
+          <div id="history"></div>
+        </section>
+        <section>
+          <button id="demoToggle">Công cụ demo</button>
+          <div id="demo" hidden>
+            <p>
+              Chế độ demo local: người đã đăng nhập có thể chuẩn bị dữ liệu.
+              Thay đổi lưu trực tiếp trên NeonDB.
+            </p>
+            <div class="grid">
+              <form id="accountForm">
+                <h2>Thêm / sửa tài khoản</h2>
+                <label>Chọn tài khoản<select id="accounts"></select></label
+                ><label
+                  >Username<input
+                    name="username"
+                    required
+                    maxlength="50" /></label
+                ><label
+                  >Họ tên<input
+                    name="full_name"
+                    required
+                    maxlength="100" /></label
+                ><label
+                  >Email nhận OTP<input
+                    name="email"
+                    type="email"
+                    required /></label
+                ><label>Điện thoại<input name="phone" maxlength="15" /></label
+                ><label
+                  >Số dư mới (VND)<input
+                    name="balance"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required /></label
+                ><label
+                  >Mật khẩu mới<input
+                    name="password"
+                    type="password"
+                    minlength="6"
+                    autocomplete="new-password" /></label
+                ><small>Để trống mật khẩu khi muốn giữ mật khẩu cũ.</small
+                ><br /><button>Lưu tài khoản</button>
+              </form>
+              <form id="feeForm">
+                <h2>Thêm học phí</h2>
+                <label>MSSV<input name="mssv" required maxlength="20" /></label
+                ><label
+                  >Tên sinh viên<input
+                    name="student_name"
+                    required
+                    maxlength="100" /></label
+                ><label
+                  >Học kỳ<input
+                    name="semester"
+                    required
+                    maxlength="50" /></label
+                ><label
+                  >Số tiền (VND)<input
+                    name="amount"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required /></label
+                ><small>Mỗi lần lưu tạo một khoản chưa thanh toán mới.</small
+                ><br /><button>Thêm học phí</button>
+              </form>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
