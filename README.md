@@ -4,15 +4,15 @@
 
 ## Kiến trúc
 
-| Thành phần | Cổng local | Database sở hữu |
-|---|---:|---|
-| API Gateway + UI | 8000 | Không có |
-| Auth–Account | 8001 | auth_database |
-| Payment | 8002 | payment_database |
-| Tuition | 8003 | tuition_database |
-| OTP + email | 8004 | otp_database |
+| Thành phần       | Cổng local | Database sở hữu  |
+| ---------------- | ---------: | ---------------- |
+| API Gateway + UI |       8000 | Không có         |
+| Auth–Account     |       8001 | auth_database    |
+| Payment          |       8002 | payment_database |
+| Tuition          |       8003 | tuition_database |
+| OTP + email      |       8004 | otp_database     |
 
-Có **4 service nghiệp vụ, 4 database và 1 Gateway**. Service giao tiếp qua HTTP với `X-Service-Token`; public API dùng JWT. Các ID liên database là liên kết logic; không tạo khóa ngoại giữa các database. Account giữ tiền theo mã giao dịch, Tuition gạch nợ có điều kiện, Payment điều phối commit/release và lưu trạng thái. Lỗi kết nối có thể tiếp tục qua cùng giao dịch; chưa có worker tự động khôi phục.
+Có **4 service nghiệp vụ, 4 database và 1 Gateway**. Service giao tiếp qua HTTP với `X-Service-Token`; public API dùng JWT. Các ID liên database là liên kết logic; không tạo khóa ngoại giữa các database. Account giữ tiền theo mã giao dịch, Tuition gạch nợ có điều kiện, Payment điều phối commit/release và lưu trạng thái. Payment tự quét và thử lại giao dịch đã xác thực hoặc đang xử lý sau gián đoạn. OTP đã dùng không được xác thực lại; service kiểm tra trạng thái xác thực đã lưu để phục hồi.
 
 ## 1. Cài đặt
 
@@ -24,6 +24,8 @@ py -m venv .venv
 ```
 
 Các lệnh bên dưới dùng Python trong `.venv`, không cần kích hoạt môi trường.
+
+Khi cập nhật từ phiên bản cũ, chạy lại lệnh cài `requirements.txt` để cài thêm thư viện pool kết nối database, sau đó khởi động lại ứng dụng.
 
 ## 2. Cấu hình database
 
@@ -44,6 +46,7 @@ postgresql://USER:PASSWORD@OTP_HOST/neondb?sslmode=require
 ```
 
 Dùng URL từ Neon của từng database. Có thể thay bằng biến môi trường `AUTH_DATABASE_URL`, `TUITION_DATABASE_URL`, `PAYMENT_DATABASE_URL`, `OTP_DATABASE_URL`.
+Mặc định ứng dụng dùng schema `public`; nếu toàn bộ các bảng nằm trong schema khác, đặt biến môi trường `DB_SCHEMA` tương ứng.
 
 - Database mới: chạy từng file trong `DB/sql/` trên đúng database tương ứng, rồi seed.
 - Database đã dùng bản cũ: chạy migration dưới đây; không chạy lại `CREATE TABLE` của schema mới.
@@ -80,6 +83,8 @@ Mở **http://127.0.0.1:8000/**. Các cổng 8001–8004 phục vụ API, không
 
 Đăng nhập → tra MSSV → chọn khoản chưa trả → xác nhận toàn bộ số tiền → nhập OTP trong email → xem kết quả và lịch sử. Nếu gửi OTP lỗi, dùng Gửi lại OTP trên cùng giao dịch. Nếu phản hồi bị chậm, kiểm tra lại trạng thái giao dịch trước khi tạo giao dịch mới. Giao dịch success đã trừ số dư và gạch nợ; lỗi gửi biên nhận không đảo ngược thanh toán.
 
+Tra cứu tự chạy khi ngừng nhập MSSV trong khoảng nửa giây. Sau khi khởi động lại, giữ các service chạy để Payment tự thử khôi phục giao dịch đã xác thực OTP. Cơ chế khóa trong tiến trình dành cho một instance Payment như launcher local; chưa hỗ trợ nhiều instance Payment cùng lúc.
+
 ## Công cụ demo
 
 Nút **Công cụ demo** nằm trên thanh đầu trang sau khi đăng nhập.
@@ -100,23 +105,25 @@ Chỉ dùng bản này local. JWT và các khóa service tự tạo mỗi lần 
 
 ## API chính
 
-| Method | URI | Chức năng |
-|---|---|---|
-| POST | /api/auth/login | Đăng nhập |
-| GET | /api/account/info | Thông tin và số dư |
-| GET | /api/tuition/{mssv} | Tra cứu học phí |
-| POST | /api/payments | Tạo giao dịch, yêu cầu gửi OTP |
-| POST | /api/payments/{code}/otp/resend | Gửi lại OTP |
-| POST | /api/payments/{code}/confirm | Xác nhận với body `{"code":"mã OTP thực"}` |
-| GET | /api/payments/{code} | Chi tiết/trạng thái |
-| GET | /api/account/transactions | Lịch sử |
-| POST | /api/payments/{code}/receipt/resend | Gửi biên nhận nếu chưa gửi |
+| Method | URI                                 | Chức năng                                  |
+| ------ | ----------------------------------- | ------------------------------------------ |
+| POST   | /api/auth/login                     | Đăng nhập                                  |
+| GET    | /api/account/info                   | Thông tin và số dư                         |
+| GET    | /api/tuition/{mssv}                 | Tra cứu học phí                            |
+| POST   | /api/payments                       | Tạo giao dịch, yêu cầu gửi OTP             |
+| POST   | /api/payments/{code}/otp/resend     | Gửi lại OTP                                |
+| POST   | /api/payments/{code}/confirm        | Xác nhận với body `{"code":"mã OTP thực"}` |
+| GET    | /api/payments/{code}                | Chi tiết/trạng thái                        |
+| GET    | /api/account/transactions           | Lịch sử                                    |
+| POST   | /api/payments/{code}/receipt/resend | Gửi biên nhận nếu chưa gửi                 |
 
 Swagger của từng service: `http://127.0.0.1:<port>/docs`. Public API trừ login yêu cầu Bearer JWT. Các endpoint `/api/demo/*` chỉ bật trong chế độ demo và yêu cầu đăng nhập.
 
 ## Kiểm tra trước buổi demo
 
-Kiểm tra một giao dịch thành công, OTP sai/hết hạn, không đủ số dư, khoản đã trả, xác nhận lặp và tiếp tục giao dịch sau gián đoạn. Đối chiếu số dư, trạng thái học phí và lịch sử. Hai tình huống concurrency cần demo riêng: nhiều giao dịch dùng cùng số dư và nhiều tài khoản cùng trả một khoản học phí. Code có cơ chế xử lý nhưng chưa có báo cáo kiểm thử concurrency kèm bản này.
+Kiểm tra một giao dịch thành công, OTP sai/hết hạn, không đủ số dư, khoản đã trả, xác nhận lặp và tiếp tục giao dịch sau gián đoạn. Đối chiếu số dư, trạng thái học phí và lịch sử. Hai tình huống concurrency cần demo riêng: nhiều giao dịch dùng cùng số dư và nhiều tài khoản cùng trả một khoản học phí.
+
+`py tests/system_test.py` chạy kiểm thử tích hợp bằng cách tạo schema tạm trong bốn database đã cấu hình, sử dụng email giả và xóa các schema đó khi kết thúc. Cần quyền tạo/xóa schema và kết nối PostgreSQL trực tiếp; không dùng dữ liệu nghiệp vụ hiện có. Kiểm thử này không thay thế demo gửi Gmail thật và kiểm thử giao diện trên trình duyệt.
 
 ## Các file được giữ ngoài Git
 

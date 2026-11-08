@@ -1,5 +1,8 @@
 import os
 import secrets
+import asyncio
+import logging
+from weakref import WeakValueDictionary
 from decimal import Decimal
 
 import httpx
@@ -9,6 +12,12 @@ from pydantic import BaseModel, Field
 from services.common import current_user, database, make_app, require_service_token
 
 app = make_app('iBanking Payment')
+logger = logging.getLogger('ibanking.recovery')
+_payment_locks = WeakValueDictionary()
+
+
+def payment_lock(code):
+    return _payment_locks.setdefault(code, asyncio.Lock())
 
 
 class StartPayment(BaseModel):
@@ -58,8 +67,8 @@ def get_transaction(transaction_code: str, user_id: int | None = None):
     return row
 
 
-async def ensure_receipt_email(transaction: dict):
-    if transaction.get('email_sent'):
+async def ensure_receipt_email(transaction: dict, *, resend: bool = False):
+    if transaction.get('email_sent') and not resend:
         return True
     try:
         payer = await call_service('auth_account', 8001, 'GET', f"/internal/accounts/{transaction['payer_user_id']}")
@@ -73,6 +82,7 @@ async def ensure_receipt_email(transaction: dict):
                 'student_name': fee['student_name'],
                 'semester': fee['semester'],
                 'amount': transaction['amount'],
+                'resend': resend,
             },
         )
         with database('payment_database') as conn:
@@ -138,6 +148,11 @@ async def set_status(transaction_code: str, status: str, completed: bool = False
 
 @app.post('/api/payments/{transaction_code}/confirm')
 async def confirm_payment(transaction_code: str, body: ConfirmPayment, user_id: int = Depends(current_user)):
+    async with payment_lock(transaction_code):
+        return await _confirm_payment(transaction_code, body, user_id)
+
+
+async def _confirm_payment(transaction_code: str, body: ConfirmPayment, user_id: int):
     transaction = get_transaction(transaction_code, user_id)
     if transaction['status'] == 'success':
         transaction['email_sent'] = await ensure_receipt_email(transaction)
@@ -147,8 +162,13 @@ async def confirm_payment(transaction_code: str, body: ConfirmPayment, user_id: 
 
     if transaction['status'] == 'pending_otp':
         await call_service('otp', 8004, 'POST', '/internal/otp/verify', {'transaction_id': transaction['id'], 'code': body.code})
-        # A retry after this point resumes the idempotent steps below without reusing the OTP.
         await set_status(transaction_code, 'processing')
+
+    return await finish_payment(transaction_code, user_id)
+
+
+async def finish_payment(transaction_code: str, user_id: int):
+    transaction = get_transaction(transaction_code, user_id)
 
     reserve_body = {'transaction_code': transaction_code, 'amount': transaction['amount']}
     try:
@@ -176,12 +196,61 @@ async def confirm_payment(transaction_code: str, body: ConfirmPayment, user_id: 
     return transaction
 
 
+def recovery_candidates():
+    with database('payment_database') as conn:
+        return conn.execute(
+            "SELECT transaction_code, payer_user_id, id, status FROM payment_transaction "
+            "WHERE status IN ('processing', 'pending_otp') ORDER BY created_at"
+        ).fetchall()
+
+
+async def recover_payments():
+    rows = await asyncio.to_thread(recovery_candidates)
+    for row in rows:
+        try:
+            async with payment_lock(row['transaction_code']):
+                transaction = get_transaction(row['transaction_code'], row['payer_user_id'])
+                if transaction['status'] == 'pending_otp':
+                    verified = await call_service('otp', 8004, 'GET', f"/internal/otp/{row['id']}/verified")
+                    if not verified['verified']:
+                        continue
+                    await set_status(row['transaction_code'], 'processing')
+                elif transaction['status'] != 'processing':
+                    continue
+                await finish_payment(row['transaction_code'], row['payer_user_id'])
+        except Exception:
+            logger.exception('Recovery failed for transaction %s; will retry', row['transaction_code'])
+
+
+async def recovery_loop():
+    while True:
+        try:
+            await recover_payments()
+        except Exception:
+            logger.exception('Payment recovery scan failed; will retry')
+        await asyncio.sleep(10)
+
+
+@app.on_event('startup')
+async def start_recovery():
+    app.state.recovery_task = asyncio.create_task(recovery_loop())
+
+
+@app.on_event('shutdown')
+async def stop_recovery():
+    app.state.recovery_task.cancel()
+    try:
+        await app.state.recovery_task
+    except asyncio.CancelledError:
+        pass
+
+
 @app.post('/api/payments/{transaction_code}/receipt/resend')
 async def resend_receipt(transaction_code: str, user_id: int = Depends(current_user)):
     transaction = get_transaction(transaction_code, user_id)
     if transaction['status'] != 'success':
         raise HTTPException(409, 'Chỉ gửi biên nhận cho giao dịch thành công')
-    sent = await ensure_receipt_email(transaction)
+    sent = await ensure_receipt_email(transaction, resend=True)
     if not sent:
         raise HTTPException(503, 'Giao dịch thành công nhưng email chưa gửi được; có thể thử lại sau.')
     return {'transaction_code': transaction_code, 'email_sent': True}

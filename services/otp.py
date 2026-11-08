@@ -13,6 +13,7 @@ from decimal import Decimal
 from pydantic import BaseModel, EmailStr, Field
 
 from services.common import database, make_app, require_service_token
+from services.email_templates import otp_html, receipt_html
 
 load_dotenv(Path(__file__).resolve().parents[1] / '.env.gmail')
 
@@ -37,6 +38,7 @@ class ReceiptEmail(BaseModel):
     student_name: str = Field(min_length=1, max_length=100)
     semester: str = Field(min_length=1, max_length=50)
     amount: Decimal = Field(gt=0, max_digits=15, decimal_places=2)
+    resend: bool = False
 
 
 def code_hash(code: str) -> str:
@@ -46,7 +48,7 @@ def code_hash(code: str) -> str:
     return hmac.new(pepper.encode(), code.encode('ascii'), hashlib.sha256).hexdigest()
 
 
-async def send_email(recipient: str, subject: str, content: str):
+async def send_email(recipient: str, subject: str, content: str, html_content: str):
     client_id = os.getenv('GOOGLE_CLIENT_ID')
     client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
     refresh_token = os.getenv('GOOGLE_REFRESH_TOKEN')
@@ -75,6 +77,7 @@ async def send_email(recipient: str, subject: str, content: str):
         message['From'] = sender
         message['Subject'] = subject
         message.set_content(content)
+        message.add_alternative(html_content, subtype='html')
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode('ascii')
         response = await client.post(
             'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
@@ -92,6 +95,9 @@ async def create_otp(body: CreateOTP):
     digest = code_hash(code)
     with database('otp_database') as conn:
         conn.execute("SELECT pg_advisory_xact_lock(hashtextextended('global-active-otp-code', 0))")
+        conn.execute('SELECT pg_advisory_xact_lock(%s)', (body.transaction_id,))
+        if conn.execute('SELECT 1 FROM otp WHERE transaction_id = %s AND verified = TRUE LIMIT 1', (body.transaction_id,)).fetchone():
+            raise HTTPException(409, 'Giao dịch đã xác thực OTP')
         conn.execute(
             'UPDATE otp SET used = TRUE WHERE transaction_id = %s AND used = FALSE AND expires_at <= CURRENT_TIMESTAMP',
             (body.transaction_id,),
@@ -126,6 +132,7 @@ async def create_otp(body: CreateOTP):
             str(body.recipient),
             'Mã OTP xác nhận thanh toán học phí',
             f'Mã OTP của giao dịch {body.transaction_code} là {code}. Mã có hiệu lực trong 5 phút và chỉ dùng một lần.',
+            otp_html(code, body.transaction_code),
         )
     except HTTPException:
         with database('otp_database') as conn:
@@ -152,7 +159,7 @@ async def send_receipt(body: ReceiptEmail):
         ).fetchone()
         if delivery['recipient'] != str(body.recipient):
             raise HTTPException(409, 'Mã giao dịch đã gắn với email khác')
-        if delivery['status'] == 'sent':
+        if delivery['status'] == 'sent' and not body.resend:
             return {'sent': True, 'already_sent': True}
 
     await send_email(
@@ -161,6 +168,7 @@ async def send_receipt(body: ReceiptEmail):
         f"Giao dịch {body.transaction_code} đã thanh toán thành công.\n"
         f"Sinh viên: {body.student_name} ({body.student_id})\n"
         f"Học kỳ: {body.semester}\nSố tiền: {body.amount} VND",
+        receipt_html(body.transaction_code, body.student_id, body.student_name, body.semester, body.amount),
     )
     with database('otp_database') as conn:
         conn.execute(
@@ -174,21 +182,13 @@ async def send_receipt(body: ReceiptEmail):
 def verify_otp(body: VerifyOTP):
     failure = None
     with database('otp_database') as conn:
+        conn.execute('SELECT pg_advisory_xact_lock(%s)', (body.transaction_id,))
         row = conn.execute(
             'SELECT id, otp_code, expires_at, used, verified, attempt_count, expires_at <= CURRENT_TIMESTAMP AS expired '
             'FROM otp WHERE transaction_id = %s AND used = FALSE ORDER BY created_at DESC LIMIT 1 FOR UPDATE',
             (body.transaction_id,),
         ).fetchone()
         if not row:
-            # A payment retry may arrive after OTP was consumed but before the
-            # payment service persisted its processing state. Permit only the
-            # same code for that same transaction to resume the saga.
-            consumed = conn.execute(
-                'SELECT otp_code, verified FROM otp WHERE transaction_id = %s ORDER BY created_at DESC LIMIT 1',
-                (body.transaction_id,),
-            ).fetchone()
-            if consumed and consumed['verified'] and secrets.compare_digest(consumed['otp_code'], code_hash(body.code)):
-                return {'valid': True, 'replayed': True}
             failure = 'OTP không hợp lệ hoặc đã được sử dụng'
         elif row['expired']:
             conn.execute('UPDATE otp SET used = TRUE WHERE id = %s', (row['id'],))
@@ -205,3 +205,13 @@ def verify_otp(body: VerifyOTP):
     if failure:
         raise HTTPException(400, failure)
     return {'valid': True}
+
+
+@app.get('/internal/otp/{transaction_id}/verified', dependencies=[Depends(require_service_token)])
+def verification_status(transaction_id: int):
+    with database('otp_database') as conn:
+        row = conn.execute(
+            'SELECT EXISTS (SELECT 1 FROM otp WHERE transaction_id = %s AND verified = TRUE) AS verified',
+            (transaction_id,),
+        ).fetchone()
+    return {'verified': row['verified']}

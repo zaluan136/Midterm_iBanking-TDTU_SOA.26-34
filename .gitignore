@@ -21,6 +21,7 @@ tempCodeRunnerFile.py
 
 # Local diagnostic files and superseded helpers (not part of the submission)
 test_*.py
+.test-deps/
 check_schema.py
 migrate_payment.py
 services/internal_payment.py

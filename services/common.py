@@ -1,24 +1,54 @@
 import os
 import hmac
 import logging
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from threading import Lock
 
 import jwt
 import psycopg
+from psycopg import sql
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool, PoolTimeout
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import JSONResponse
 from services.config import load_connections, CONNECTION_FILE
 
 logger = logging.getLogger('ibanking.database')
+_pools = {}
+_pools_lock = Lock()
 
 
+@contextmanager
 def database(name):
-    url = os.getenv(name.upper() + '_URL')
-    if not url:
-        url = load_connections(CONNECTION_FILE)[name]
-    return psycopg.connect(url, connect_timeout=10, row_factory=dict_row)
+    with _pools_lock:
+        pool = _pools.get(name)
+        if pool is None:
+            url = os.getenv(name.upper() + '_URL') or load_connections(CONNECTION_FILE)[name]
+            pool = ConnectionPool(
+                url, min_size=0, max_size=5, timeout=10,
+                kwargs={'connect_timeout': 10, 'row_factory': dict_row},
+                check=ConnectionPool.check_connection, open=True,
+            )
+            _pools[name] = pool
+    try:
+        with pool.connection() as conn:
+            # A transaction pooler can reuse a server session with a stale
+            # search_path. Keep this setting scoped to the current transaction.
+            conn.execute(sql.SQL('SET LOCAL search_path TO {}').format(
+                sql.Identifier(os.environ.get('DB_SCHEMA', 'public')),
+            ))
+            yield conn
+    except PoolTimeout as exc:
+        raise psycopg.OperationalError('Database connection unavailable') from exc
+
+
+def close_database_pools():
+    with _pools_lock:
+        for pool in _pools.values():
+            pool.close()
+        _pools.clear()
 
 
 def secret():
@@ -50,6 +80,8 @@ def require_service_token(token: str | None = Header(default=None, alias='X-Serv
 
 def make_app(title):
     app = FastAPI(title=title)
+
+    app.on_event('shutdown')(close_database_pools)
 
     @app.exception_handler(psycopg.Error)
     async def database_error(request, exc):
