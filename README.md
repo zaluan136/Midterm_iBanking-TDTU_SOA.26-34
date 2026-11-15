@@ -1,20 +1,35 @@
-# iBanking · Thanh toán học phí
+# iBanking - Thanh toán học phí
 
-Đồ án giữa kỳ SOA: đăng nhập, tra cứu MSSV, thanh toán toàn bộ khoản học phí, xác thực OTP qua email và xem lịch sử giao dịch. Backend Python/FastAPI, dữ liệu PostgreSQL trên NeonDB, UI HTML/CSS/JavaScript.
+Ứng dụng iBanking hỗ trợ tra cứu và thanh toán học phí trực tuyến. Người dùng xác nhận giao dịch bằng OTP qua email, sau đó theo dõi kết quả và lịch sử thanh toán.
+
+Đồ án giữa kỳ môn **Service-Oriented Architecture** được xây dựng với FastAPI, PostgreSQL và giao diện HTML, CSS, JavaScript.
+
+## Chức năng
+
+- Đăng nhập, xem thông tin tài khoản và số dư.
+- Tra cứu học phí theo mã số sinh viên; thanh toán toàn bộ một khoản chưa trả.
+- Xác nhận giao dịch bằng OTP qua email, có hiệu lực 5 phút và chỉ dùng một lần.
+- Xem trạng thái, lịch sử giao dịch và nhận biên nhận qua email.
+- Bảo vệ số dư và học phí khi nhiều giao dịch được xử lý đồng thời.
+- Chuẩn bị dữ liệu thử bằng công cụ demo.
 
 ## Kiến trúc
 
-| Thành phần       | Cổng local | Database sở hữu  |
-| ---------------- | ---------: | ---------------- |
-| API Gateway + UI |       8000 | Không có         |
-| Auth–Account     |       8001 | auth_database    |
-| Payment          |       8002 | payment_database |
-| Tuition          |       8003 | tuition_database |
-| OTP + email      |       8004 | otp_database     |
+| Thành phần            | Cổng local | Trách nhiệm                                        |
+| --------------------- | ---------: | -------------------------------------------------- |
+| API Gateway và Web UI |       8000 | Cung cấp giao diện và chuyển tiếp public API.      |
+| Auth–Account          |       8001 | Xác thực, tài khoản, số dư và giữ tiền.            |
+| Payment               |       8002 | Tạo, điều phối và lưu giao dịch.                   |
+| Tuition               |       8003 | Tra cứu học phí và cập nhật trạng thái thanh toán. |
+| OTP và Email          |       8004 | Tạo, xác thực OTP và gửi email qua Gmail API.      |
 
-Có **4 service nghiệp vụ, 4 database và 1 Gateway**. Service giao tiếp qua HTTP với `X-Service-Token`; public API dùng JWT. Các ID liên database là liên kết logic; không tạo khóa ngoại giữa các database. Account giữ tiền theo mã giao dịch, Tuition gạch nợ có điều kiện, Payment điều phối commit/release và lưu trạng thái. Payment tự quét và thử lại giao dịch đã xác thực hoặc đang xử lý sau gián đoạn. OTP đã dùng không được xác thực lại; service kiểm tra trạng thái xác thực đã lưu để phục hồi.
+Có **4 service nghiệp vụ, 4 database và 1 Gateway**. Service giao tiếp qua HTTP với `X-Service-Token`; public API dùng JWT. Các ID liên database là liên kết logic, không phải khóa ngoại giữa các database.
 
-## 1. Cài đặt
+Sau khi OTP hợp lệ, Payment yêu cầu Auth–Account giữ tiền, Tuition đánh dấu khoản phí đã trả và Auth–Account hoàn tất khoản giữ. Nếu khoản phí đã được giao dịch khác thanh toán, Payment yêu cầu giải phóng tiền. Payment thử khôi phục các giao dịch đang xử lý sau gián đoạn. Đây là cơ chế nhất quán cuối cùng giữa các database, không phải một transaction ACID chung.
+
+## Cài đặt và cấu hình
+
+### 1. Cài thư viện
 
 Yêu cầu Python 3.10+ và 4 database PostgreSQL. Trong PowerShell tại thư mục dự án:
 
@@ -25,9 +40,7 @@ py -m venv .venv
 
 Các lệnh bên dưới dùng Python trong `.venv`, không cần kích hoạt môi trường.
 
-Khi cập nhật từ phiên bản cũ, chạy lại lệnh cài `requirements.txt` để cài thêm thư viện pool kết nối database, sau đó khởi động lại ứng dụng.
-
-## 2. Cấu hình database
+### 2. Cấu hình database
 
 Tạo file local `DB/connection string.txt` (Git bỏ qua), gồm tên cấu hình và URL tương ứng ở dòng kế tiếp:
 
@@ -60,7 +73,7 @@ Migration giữ dữ liệu, thêm bảng/cột cần thiết và bỏ các khó
 
 Tài khoản mẫu: `alice`, `bob`, `charlie`; mật khẩu mới mặc định `Demo123!`. MSSV: `SV001`–`SV004`. Email `example.com` là dữ liệu mẫu: đổi sang email nhận được thư bằng Công cụ demo.
 
-## 3. Thiết lập Gmail gửi OTP
+### 3. Thiết lập Gmail gửi OTP
 
 1. Trong Google Cloud, tạo project và bật Gmail API.
 2. Google Auth Platform: cấu hình ứng dụng External/Testing và thêm Gmail gửi thư vào Test users.
@@ -73,7 +86,7 @@ Tài khoản mẫu: `alice`, `bob`, `charlie`; mật khẩu mới mặc định 
 
 Nhập lại đúng Gmail vừa cấp quyền. Script lưu `.env.gmail` ngoài Git; OTP Service tự đọc file này. Các biến sử dụng: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GMAIL_SENDER`. Không commit file OAuth hoặc token. Khi app còn Testing, token có thể hết hạn sau 7 ngày; nếu cần cấp quyền lại, đổi tên file `.env.gmail` cũ rồi chạy setup lần nữa. Thư demo có thể nằm trong Spam.
 
-## 4. Khởi chạy và sử dụng
+## Khởi chạy và sử dụng
 
 ```powershell
 .\.venv\Scripts\python.exe run_local.py
@@ -81,7 +94,13 @@ Nhập lại đúng Gmail vừa cấp quyền. Script lưu `.env.gmail` ngoài G
 
 Mở **http://127.0.0.1:8000/**. Các cổng 8001–8004 phục vụ API, không có trang chủ. Ctrl+C dừng toàn bộ tiến trình. Sau khi đổi code/config, khởi động lại và Ctrl+F5 trình duyệt.
 
-Đăng nhập → tra MSSV → chọn khoản chưa trả → xác nhận toàn bộ số tiền → nhập OTP trong email → xem kết quả và lịch sử. Nếu gửi OTP lỗi, dùng Gửi lại OTP trên cùng giao dịch. Nếu phản hồi bị chậm, kiểm tra lại trạng thái giao dịch trước khi tạo giao dịch mới. Giao dịch success đã trừ số dư và gạch nợ; lỗi gửi biên nhận không đảo ngược thanh toán.
+1. Đăng nhập và xem số dư trong mục **Tài khoản**.
+2. Nhập mã số sinh viên và chọn một khoản học phí chưa thanh toán.
+3. Kiểm tra thông tin, điều khoản và xác nhận để nhận OTP.
+4. Nhập OTP trong email để hoàn tất thanh toán.
+5. Kiểm tra số dư, trạng thái học phí, lịch sử và biên nhận.
+
+Nếu gửi OTP lỗi, dùng **Gửi lại OTP** trên cùng giao dịch. Nếu phản hồi bị chậm, kiểm tra trạng thái trước khi tạo giao dịch mới. Gửi biên nhận lỗi không đảo ngược giao dịch đã thành công.
 
 Tra cứu tự chạy khi ngừng nhập MSSV trong khoảng nửa giây. Sau khi khởi động lại, giữ các service chạy để Payment tự thử khôi phục giao dịch đã xác thực OTP. Cơ chế khóa trong tiến trình dành cho một instance Payment như launcher local; chưa hỗ trợ nhiều instance Payment cùng lúc.
 
@@ -105,38 +124,18 @@ Chỉ dùng bản này local. JWT và các khóa service tự tạo mỗi lần 
 
 ## API chính
 
-Xem [đặc tả API hiện hành](presentation/API-HIEN-HANH.md). File `DB/API Specification – iBanking Midterm.pdf` mô tả thiết kế cũ, không khớp các endpoint và workflow hiện tại.
+Các endpoint hiện hành được liệt kê dưới đây. File `DB/API Specification – iBanking Midterm.pdf` mô tả thiết kế cũ, không khớp hoàn toàn với code.
 
 | Method | URI                                 | Chức năng                                  |
 | ------ | ----------------------------------- | ------------------------------------------ |
 | POST   | /api/auth/login                     | Đăng nhập                                  |
-| GET    | /api/account/info                   | Thông tin và số dư                         |
+| GET    | /api/account/info                   | c Thông tin và số dư                       |
 | GET    | /api/tuition/{mssv}                 | Tra cứu học phí                            |
 | POST   | /api/payments                       | Tạo giao dịch, yêu cầu gửi OTP             |
 | POST   | /api/payments/{code}/otp/resend     | Gửi lại OTP                                |
 | POST   | /api/payments/{code}/confirm        | Xác nhận với body `{"code":"mã OTP thực"}` |
 | GET    | /api/payments/{code}                | Chi tiết/trạng thái                        |
 | GET    | /api/account/transactions           | Lịch sử                                    |
-| POST   | /api/payments/{code}/receipt/resend | Gửi biên nhận nếu chưa gửi                 |
+| POST   | /api/payments/{code}/receipt/resend | Gửi lại biên nhận của giao dịch thành công |
 
-Swagger của từng service: `http://127.0.0.1:<port>/docs`. Public API trừ login yêu cầu Bearer JWT. Các endpoint `/api/demo/*` chỉ bật trong chế độ demo và yêu cầu đăng nhập.
-
-## Kiểm tra trước buổi demo
-
-Kiểm tra một giao dịch thành công, OTP sai/hết hạn, không đủ số dư, khoản đã trả, xác nhận lặp và tiếp tục giao dịch sau gián đoạn. Đối chiếu số dư, trạng thái học phí và lịch sử. Hai tình huống concurrency cần demo riêng: nhiều giao dịch dùng cùng số dư và nhiều tài khoản cùng trả một khoản học phí.
-
-`py tests/system_test.py` chạy kiểm thử tích hợp bằng cách tạo schema tạm trong bốn database đã cấu hình, sử dụng email giả và xóa các schema đó khi kết thúc. Cần quyền tạo/xóa schema và kết nối PostgreSQL trực tiếp; không dùng dữ liệu nghiệp vụ hiện có. Kiểm thử này không thay thế demo gửi Gmail thật và kiểm thử giao diện trên trình duyệt.
-
-## Các file được giữ ngoài Git
-
-Connection string, `.env*`, OAuth JSON/token, `.venv*`, `__pycache__`, file test/chẩn đoán và script cũ. App đọc cấu hình từ `services/config.py`, không phụ thuộc file test. Schema/migration, setup Gmail và seed được giữ lại để thành viên khác chạy được.
-
-## Hai phương án demo độc lập
-
-**Docker local:** mở Docker Desktop rồi chạy `.\start_docker.cmd`. Vào http://127.0.0.1:8000/; không chạy ngrok.
-
-**Python local + ngrok:** cài ngrok CLI, dùng .venv đã cài thư viện rồi chạy `.\start_ngrok.cmd`. Script tự chạy app và in link HTTPS, không dùng Docker. Lần đầu cần ngrok Authtoken nếu chưa cấu hình.
-
-Mỗi phương án chỉ cần một lệnh và Ctrl+C để dừng. Chỉ chạy một phương án tại một thời điểm. `start_demo.cmd` cũ mặc định chạy Docker local. Cả hai giữ nguyên DB Neon và Gmail, không dự phòng sự cố của các dịch vụ bên ngoài đó.
-
-Chi tiết: [Hai phương án demo](presentation/DOCKER-NGROK.md), [Docker thủ công](presentation/DOCKER.md), [Kịch bản kiểm tra và demo](presentation/HUONG-DAN-DEMO.md). Không cần dùng run_render.py hoặc hosting.
+Khi chạy Python local, xem Swagger của từng service tại `http://127.0.0.1:<port>/docs`. Với Docker Compose, chỉ Gateway được mở ra máy host tại cổng 8000. Public API trừ login yêu cầu Bearer JWT. Các endpoint `/api/demo/*` chỉ bật trong chế độ demo và yêu cầu đăng nhập.

@@ -32,7 +32,9 @@ def main():
                 f"[LỖI] {name}: {type(exc).__name__}. Dừng tại đây; không chạy lại schema CREATE TABLE trên database có dữ liệu."
             )
             return 1
-    print("Đã áp dụng migration. Chạy tests/system_test.py để kiểm tra trên schema tạm.")
+    print(
+        "Đã áp dụng migration. Chạy tests/system_test.py để kiểm tra trên schema tạm."
+    )
     return 0
 
 
