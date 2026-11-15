@@ -105,6 +105,8 @@ Chỉ dùng bản này local. JWT và các khóa service tự tạo mỗi lần 
 
 ## API chính
 
+Xem [đặc tả API hiện hành](presentation/API-HIEN-HANH.md). File `DB/API Specification – iBanking Midterm.pdf` mô tả thiết kế cũ, không khớp các endpoint và workflow hiện tại.
+
 | Method | URI                                 | Chức năng                                  |
 | ------ | ----------------------------------- | ------------------------------------------ |
 | POST   | /api/auth/login                     | Đăng nhập                                  |
@@ -129,7 +131,6 @@ Kiểm tra một giao dịch thành công, OTP sai/hết hạn, không đủ s�
 
 Connection string, `.env*`, OAuth JSON/token, `.venv*`, `__pycache__`, file test/chẩn đoán và script cũ. App đọc cấu hình từ `services/config.py`, không phụ thuộc file test. Schema/migration, setup Gmail và seed được giữ lại để thành viên khác chạy được.
 
-
 ## Hai phương án demo độc lập
 
 **Docker local:** mở Docker Desktop rồi chạy `.\start_docker.cmd`. Vào http://127.0.0.1:8000/; không chạy ngrok.
@@ -138,4 +139,4 @@ Connection string, `.env*`, OAuth JSON/token, `.venv*`, `__pycache__`, file test
 
 Mỗi phương án chỉ cần một lệnh và Ctrl+C để dừng. Chỉ chạy một phương án tại một thời điểm. `start_demo.cmd` cũ mặc định chạy Docker local. Cả hai giữ nguyên DB Neon và Gmail, không dự phòng sự cố của các dịch vụ bên ngoài đó.
 
-Chi tiết: [Hai phương án demo](Presentation/DOCKER-NGROK.md), [Docker thủ công](Presentation/DOCKER.md). Không cần dùng run_render.py hoặc hosting.
+Chi tiết: [Hai phương án demo](presentation/DOCKER-NGROK.md), [Docker thủ công](presentation/DOCKER.md), [Kịch bản kiểm tra và demo](presentation/HUONG-DAN-DEMO.md). Không cần dùng run_render.py hoặc hosting.

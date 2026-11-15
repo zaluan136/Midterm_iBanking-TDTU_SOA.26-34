@@ -5,7 +5,7 @@ DB/connection string.txt
 client_secret_*.json
 token.json
 !.env.example
-
+*.tex
 # Python and editor output
 __pycache__/
 *.py[cod]

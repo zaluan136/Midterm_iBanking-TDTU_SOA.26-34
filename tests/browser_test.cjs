@@ -157,6 +157,7 @@ const server = http.createServer((req, res) => {
     await page.locator("#fees").getByText(/SV001/).waitFor();
     await page.locator("#fees button").click();
     await page.locator("#confirmPayment").waitFor({ state: "visible" });
+    assert((await page.locator("#review").innerText()).includes("Điều khoản thanh toán"));
     await page.waitForFunction(
       () => !document.querySelector("#confirmPayment").disabled,
     );

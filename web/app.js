@@ -5,7 +5,8 @@ theme.href = "/app.css";
 document.head.append(theme);
 const topbar = document.createElement("header");
 topbar.id = "topbar";
-topbar.innerHTML = '<a class="brand" href="#lookup"><span class="brand-mark">iB</span><span>iBanking<small>CỔNG THANH TOÁN HỌC PHÍ</small></span></a><div class="toolbar"></div>';
+topbar.innerHTML =
+  '<a class="brand" href="#lookup"><span class="brand-mark">iB</span><span>iBanking<small>CỔNG THANH TOÁN HỌC PHÍ</small></span></a><div class="toolbar"></div>';
 topbar.querySelector(".toolbar").append($("demoToggle"), $("logout"));
 document.querySelector("main").prepend(topbar);
 $("demoToggle").textContent = "Công cụ demo";
@@ -23,7 +24,8 @@ lookupSection.querySelector("h2").textContent = "Tìm sinh viên";
 $("lookup").elements.mssv.placeholder = "Nhập mã sinh viên, ví dụ SV001";
 const searchHelp = document.createElement("p");
 searchHelp.className = "section-help";
-searchHelp.textContent = "Tra cứu sinh viên để xem các khoản học phí và chọn khoản cần thanh toán.";
+searchHelp.textContent =
+  "Tra cứu sinh viên để xem các khoản học phí và chọn khoản cần thanh toán.";
 lookupSection.querySelector("h2").after(searchHelp);
 const searchEmpty = document.createElement("div");
 searchEmpty.id = "searchEmpty";
@@ -33,35 +35,69 @@ $("fees").before(searchEmpty);
 const review = document.createElement("section");
 review.id = "review";
 review.hidden = true;
-review.innerHTML = '<div class="eyebrow">BƯỚC 01 · THÔNG TIN GIAO DỊCH</div><h2>Xem lại thông tin thanh toán</h2><p class="section-help">Kiểm tra người nhận học phí và số tiền trước khi yêu cầu mã OTP.</p><div id="reviewDetails" class="grid"></div><p id="reviewMessage" role="status"></p><div class="form-actions"><button id="confirmPayment" type="button" disabled>Xác nhận &amp; nhận OTP</button><button id="cancelReview" type="button">Quay lại tra cứu</button></div>';
+review.innerHTML =
+  '<div class="eyebrow">BƯỚC 01 · THÔNG TIN GIAO DỊCH</div><h2>Xem lại thông tin thanh toán</h2><p class="section-help">Kiểm tra người nhận học phí và số tiền trước khi yêu cầu mã OTP.</p><div id="reviewDetails" class="grid"></div><p><strong>Điều khoản thanh toán:</strong> Khoản học phí được thanh toán toàn bộ. Giao dịch chỉ được xử lý sau khi xác thực OTP hợp lệ.</p><p id="reviewMessage" role="status"></p><div class="form-actions"><button id="confirmPayment" type="button" disabled>Xác nhận &amp; nhận OTP</button><button id="cancelReview" type="button">Quay lại tra cứu</button></div>';
 const checkout = document.createElement("div");
 checkout.id = "checkoutPage";
 checkout.append(review, $("payment"));
 const checkoutEmpty = document.createElement("section");
 checkoutEmpty.id = "checkoutEmpty";
 checkoutEmpty.className = "empty-state";
-checkoutEmpty.innerHTML = '<h2>Chưa chọn khoản học phí</h2><p>Tra cứu sinh viên và chọn một khoản chưa thanh toán để tiếp tục.</p><button type="button" id="startLookup">Tra cứu sinh viên</button>';
+checkoutEmpty.innerHTML =
+  '<h2>Chưa chọn khoản học phí</h2><p>Tra cứu sinh viên và chọn một khoản chưa thanh toán để tiếp tục.</p><button type="button" id="startLookup">Tra cứu sinh viên</button>';
 checkout.append(checkoutEmpty);
 $("workspace").append(checkout);
-$("payment").insertAdjacentHTML("afterbegin", '<div class="eyebrow">BƯỚC 02 · XÁC THỰC &amp; KẾT QUẢ</div>');
+$("payment").insertAdjacentHTML(
+  "afterbegin",
+  '<div class="eyebrow">BƯỚC 02 · XÁC THỰC &amp; KẾT QUẢ</div>',
+);
 const resultActions = document.createElement("div");
 resultActions.className = "form-actions";
-resultActions.innerHTML = '<button type="button" id="toHistory">Xem lịch sử giao dịch</button><button type="button" id="newLookup" class="secondary">Tra cứu sinh viên khác</button>';
+resultActions.innerHTML =
+  '<button type="button" id="toHistory">Xem lịch sử giao dịch</button><button type="button" id="newLookup" class="secondary">Tra cứu sinh viên khác</button>';
 $("payment").append(resultActions);
-const pages = { lookup: lookupSection, checkout, history: historySection, account: accountSection, demo: demoSection };
+const pages = {
+  lookup: lookupSection,
+  checkout,
+  history: historySection,
+  account: accountSection,
+  demo: demoSection,
+};
 const pageMeta = {
-  lookup: ["Tra cứu sinh viên", "Tìm thông tin học phí và thanh toán cho sinh viên bằng mã số."],
-  checkout: ["Thanh toán học phí", "Kiểm tra thông tin, xác thực OTP và theo dõi kết quả giao dịch."],
-  history: ["Lịch sử giao dịch", "Theo dõi các giao dịch, tiếp tục thanh toán và nhận lại biên nhận."],
-  account: ["Tài khoản của bạn", "Thông tin người nộp và số dư khả dụng để thanh toán học phí."],
-  demo: ["Công cụ demo", "Chuẩn bị tài khoản và học phí cho buổi trình diễn."]
+  lookup: [
+    "Tra cứu sinh viên",
+    "Tìm thông tin học phí và thanh toán cho sinh viên bằng mã số.",
+  ],
+  checkout: [
+    "Thanh toán học phí",
+    "Kiểm tra thông tin, xác thực OTP và theo dõi kết quả giao dịch.",
+  ],
+  history: [
+    "Lịch sử giao dịch",
+    "Theo dõi các giao dịch, tiếp tục thanh toán và nhận lại biên nhận.",
+  ],
+  account: [
+    "Tài khoản của bạn",
+    "Thông tin người nộp và số dư khả dụng để thanh toán học phí.",
+  ],
+  demo: ["Công cụ demo", "Chuẩn bị tài khoản và học phí cho buổi trình diễn."],
 };
 const nav = document.createElement("nav");
 nav.id = "navigation";
 nav.setAttribute("aria-label", "Điều hướng chính");
-for (const [key, label] of [["lookup", "Tra cứu sinh viên"], ["checkout", "Thanh toán"], ["history", "Lịch sử giao dịch"], ["account", "Tài khoản"]]) {
-  const b = document.createElement("button"); b.type = "button"; b.dataset.page = key; b.textContent = label;
-  b.onclick = () => { if (!busy) location.hash = key; };
+for (const [key, label] of [
+  ["lookup", "Tra cứu sinh viên"],
+  ["checkout", "Thanh toán"],
+  ["history", "Lịch sử giao dịch"],
+  ["account", "Tài khoản"],
+]) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.dataset.page = key;
+  b.textContent = label;
+  b.onclick = () => {
+    if (!busy) location.hash = key;
+  };
   nav.append(b);
 }
 topbar.after(nav);
@@ -84,9 +120,14 @@ function go(page, focus = true) {
   [title.textContent, intro.textContent] = pageMeta[page];
   checkoutEmpty.hidden = !review.hidden || !$("payment").hidden;
   if (location.hash !== "#" + page) historyReplace(page);
-  if (focus) { title.focus({preventScroll:true}); window.scrollTo({top:0, behavior:"smooth"}); }
+  if (focus) {
+    title.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 }
-function historyReplace(page) { window.history.replaceState(null, "", "#" + page); }
+function historyReplace(page) {
+  window.history.replaceState(null, "", "#" + page);
+}
 window.addEventListener("hashchange", () => go(location.hash.slice(1)));
 $("startLookup").onclick = $("newLookup").onclick = () => go("lookup");
 $("toHistory").onclick = () => go("history");
@@ -367,7 +408,10 @@ $("lookup").onsubmit = (e) => {
 };
 $("logout").onclick = logout;
 $("historyRefresh").onclick = () => action(loadHistory);
-$("cancelReview").onclick = () => { closeReview(); go("lookup"); };
+$("cancelReview").onclick = () => {
+  closeReview();
+  go("lookup");
+};
 $("confirmPayment").onclick = () =>
   action(async () => {
     const balance = reviewAccount ? cents(reviewAccount.balance) : null,
@@ -485,4 +529,3 @@ $("feeForm").onsubmit = (e) => {
 };
 
 go("lookup", false);
-

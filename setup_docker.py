@@ -1,4 +1,5 @@
 """Create local shared service keys without replacing existing keys."""
+
 from pathlib import Path
 import secrets
 
