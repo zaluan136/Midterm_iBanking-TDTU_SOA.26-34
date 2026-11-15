@@ -127,6 +127,8 @@ const server = http.createServer((req, res) => {
     await input.fill("PAID");
     await page.locator("#fees").getByText(/PAID/).waitFor();
     assert.strictEqual(await page.locator("#fees button").count(), 0);
+    await page.locator("#navigation [data-page=history]").click();
+    assert(await page.locator("#lookup").isHidden());
     await page
       .locator("#history")
       .getByRole("button", { name: "Xem / tiếp tục" })
@@ -135,6 +137,7 @@ const server = http.createServer((req, res) => {
       .locator("#paymentResult")
       .getByText(/Thanh toán thành công/)
       .waitFor();
+    await page.locator("#navigation [data-page=lookup]").click();
     availableBalance = "5";
     await input.fill("LOW");
     await page.locator("#fees").getByText(/LOW/).waitFor();
@@ -148,6 +151,7 @@ const server = http.createServer((req, res) => {
       (await page.locator("#reviewMessage").innerText()).includes("không đủ"),
     );
     assert.strictEqual(paymentPosts, 0);
+    await page.locator("#cancelReview").click();
     availableBalance = "100";
     await input.fill("SV001");
     await page.locator("#fees").getByText(/SV001/).waitFor();
@@ -191,6 +195,15 @@ const server = http.createServer((req, res) => {
       ),
     );
     assert(await page.locator("#review").isHidden());
+    assert(await page.locator("#lookup").isHidden());
+    assert(await page.locator("#history").isHidden());
+    await page.locator("#navigation [data-page=history]").click();
+    assert(await page.locator("#payment").isHidden());
+    await page.locator("#navigation [data-page=checkout]").click();
+    assert(await page.locator("#payment").isVisible());
+    await page.setViewportSize({width:390,height:844});
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    console.log('PASS separate lookup, checkout, history navigation and mobile width');
     console.log(
       "PASS review, paid fee, insufficient funds, stale server data, OTP initiation",
     );

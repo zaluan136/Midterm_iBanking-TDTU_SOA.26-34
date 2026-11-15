@@ -5,36 +5,91 @@ theme.href = "/app.css";
 document.head.append(theme);
 const topbar = document.createElement("header");
 topbar.id = "topbar";
-const brand = document.createElement("div");
-brand.className = "brand";
-brand.innerHTML =
-  '<span class="brand-mark">iB</span><div>iBanking<small>THANH TOÁN HỌC PHÍ</small></div>';
-const tools = document.createElement("div");
-tools.className = "toolbar";
-tools.append($("demoToggle"), $("logout"));
-topbar.append(brand, tools);
+topbar.innerHTML = '<a class="brand" href="#lookup"><span class="brand-mark">iB</span><span>iBanking<small>CỔNG THANH TOÁN HỌC PHÍ</small></span></a><div class="toolbar"></div>';
+topbar.querySelector(".toolbar").append($("demoToggle"), $("logout"));
 document.querySelector("main").prepend(topbar);
-$("demoToggle").textContent = "⚙ Công cụ demo";
+$("demoToggle").textContent = "Công cụ demo";
 const title = document.querySelector("h1");
-title.textContent = "Học phí, thanh toán dễ dàng.";
+title.tabIndex = -1;
 const intro = document.createElement("p");
 intro.className = "intro";
-intro.textContent =
-  "Tra cứu khoản phí, xác nhận qua email và theo dõi giao dịch trong một nơi.";
 title.after(intro);
 const demoSection = $("demo").parentElement;
 demoSection.id = "demoSection";
-$("workspace").prepend(demoSection);
-$("demo").insertAdjacentHTML(
-  "afterbegin",
-  '<div class="eyebrow">DEMO WORKSPACE</div><h2>Chuẩn bị dữ liệu trình diễn</h2>',
-);
+const accountSection = $("account").closest("section");
+const lookupSection = $("lookup").closest("section");
+const historySection = $("history").closest("section");
+lookupSection.querySelector("h2").textContent = "Tìm sinh viên";
+$("lookup").elements.mssv.placeholder = "Nhập mã sinh viên, ví dụ SV001";
+const searchHelp = document.createElement("p");
+searchHelp.className = "section-help";
+searchHelp.textContent = "Tra cứu sinh viên để xem các khoản học phí và chọn khoản cần thanh toán.";
+lookupSection.querySelector("h2").after(searchHelp);
+const searchEmpty = document.createElement("div");
+searchEmpty.id = "searchEmpty";
+searchEmpty.className = "empty-state";
+searchEmpty.textContent = "Nhập mã sinh viên ở trên để bắt đầu tra cứu.";
+$("fees").before(searchEmpty);
 const review = document.createElement("section");
 review.id = "review";
 review.hidden = true;
-review.innerHTML =
-  '<h2>Xem lại thông tin thanh toán</h2><div id="reviewDetails" class="grid"></div><p id="reviewMessage" role="status"></p><button id="confirmPayment" type="button" disabled>Xác nhận giao dịch</button><button id="cancelReview" type="button">Hủy</button>';
-$("payment").before(review);
+review.innerHTML = '<div class="eyebrow">BƯỚC 01 · THÔNG TIN GIAO DỊCH</div><h2>Xem lại thông tin thanh toán</h2><p class="section-help">Kiểm tra người nhận học phí và số tiền trước khi yêu cầu mã OTP.</p><div id="reviewDetails" class="grid"></div><p id="reviewMessage" role="status"></p><div class="form-actions"><button id="confirmPayment" type="button" disabled>Xác nhận &amp; nhận OTP</button><button id="cancelReview" type="button">Quay lại tra cứu</button></div>';
+const checkout = document.createElement("div");
+checkout.id = "checkoutPage";
+checkout.append(review, $("payment"));
+const checkoutEmpty = document.createElement("section");
+checkoutEmpty.id = "checkoutEmpty";
+checkoutEmpty.className = "empty-state";
+checkoutEmpty.innerHTML = '<h2>Chưa chọn khoản học phí</h2><p>Tra cứu sinh viên và chọn một khoản chưa thanh toán để tiếp tục.</p><button type="button" id="startLookup">Tra cứu sinh viên</button>';
+checkout.append(checkoutEmpty);
+$("workspace").append(checkout);
+$("payment").insertAdjacentHTML("afterbegin", '<div class="eyebrow">BƯỚC 02 · XÁC THỰC &amp; KẾT QUẢ</div>');
+const resultActions = document.createElement("div");
+resultActions.className = "form-actions";
+resultActions.innerHTML = '<button type="button" id="toHistory">Xem lịch sử giao dịch</button><button type="button" id="newLookup" class="secondary">Tra cứu sinh viên khác</button>';
+$("payment").append(resultActions);
+const pages = { lookup: lookupSection, checkout, history: historySection, account: accountSection, demo: demoSection };
+const pageMeta = {
+  lookup: ["Tra cứu sinh viên", "Tìm thông tin học phí và thanh toán cho sinh viên bằng mã số."],
+  checkout: ["Thanh toán học phí", "Kiểm tra thông tin, xác thực OTP và theo dõi kết quả giao dịch."],
+  history: ["Lịch sử giao dịch", "Theo dõi các giao dịch, tiếp tục thanh toán và nhận lại biên nhận."],
+  account: ["Tài khoản của bạn", "Thông tin người nộp và số dư khả dụng để thanh toán học phí."],
+  demo: ["Công cụ demo", "Chuẩn bị tài khoản và học phí cho buổi trình diễn."]
+};
+const nav = document.createElement("nav");
+nav.id = "navigation";
+nav.setAttribute("aria-label", "Điều hướng chính");
+for (const [key, label] of [["lookup", "Tra cứu sinh viên"], ["checkout", "Thanh toán"], ["history", "Lịch sử giao dịch"], ["account", "Tài khoản"]]) {
+  const b = document.createElement("button"); b.type = "button"; b.dataset.page = key; b.textContent = label;
+  b.onclick = () => { if (!busy) location.hash = key; };
+  nav.append(b);
+}
+topbar.after(nav);
+let currentPage = "lookup";
+function go(page, focus = true) {
+  if (!token) {
+    nav.hidden = true;
+    title.textContent = "Chào mừng đến với iBanking";
+    intro.textContent = "Đăng nhập để tra cứu và thanh toán học phí an toàn.";
+    return;
+  }
+  if (!pages[page]) page = "lookup";
+  currentPage = page;
+  for (const [key, el] of Object.entries(pages)) el.hidden = key !== page;
+  nav.hidden = false;
+  for (const b of nav.querySelectorAll("button")) {
+    if (b.dataset.page === page) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  }
+  [title.textContent, intro.textContent] = pageMeta[page];
+  checkoutEmpty.hidden = !review.hidden || !$("payment").hidden;
+  if (location.hash !== "#" + page) historyReplace(page);
+  if (focus) { title.focus({preventScroll:true}); window.scrollTo({top:0, behavior:"smooth"}); }
+}
+function historyReplace(page) { window.history.replaceState(null, "", "#" + page); }
+window.addEventListener("hashchange", () => go(location.hash.slice(1)));
+$("startLookup").onclick = $("newLookup").onclick = () => go("lookup");
+$("toHistory").onclick = () => go("history");
 let token = "",
   selected = null,
   selectedFee = null,
@@ -76,6 +131,7 @@ function closeReview() {
   reviewAccount = null;
   review.hidden = true;
   syncReview();
+  checkoutEmpty.hidden = !$("payment").hidden;
 }
 function logout() {
   clearTimeout(lookupTimer);
@@ -92,6 +148,7 @@ function logout() {
   $("account").replaceChildren();
   $("demo").hidden = true;
   $("accountForm").reset();
+  go("lookup", false);
 }
 async function api(url, body) {
   const r = await fetch(url, {
@@ -194,13 +251,14 @@ async function selectFee(f) {
   }
   review.hidden = false;
   syncReview();
-  review.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  go("checkout");
 }
 async function lookup() {
   const m = $("lookup").elements.mssv.value.trim(),
     version = ++lookupVersion;
   if (!m) {
     $("fees").replaceChildren();
+    searchEmpty.hidden = false;
     return;
   }
   let rows;
@@ -216,6 +274,7 @@ async function lookup() {
   if (version !== lookupVersion || m !== $("lookup").elements.mssv.value.trim())
     return;
   $("fees").replaceChildren();
+  searchEmpty.hidden = true;
   for (const f of rows) {
     const box = document.createElement("div");
     box.className = "item";
@@ -243,9 +302,9 @@ function show(tx) {
   $("otpForm").hidden = !["pending_otp", "processing"].includes(tx.status);
   $("otpForm").elements.code.required = tx.status === "pending_otp";
   $("resend").hidden = tx.status !== "pending_otp";
-  $("payment").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  go("checkout");
 }
-async function history() {
+async function loadHistory() {
   const rows = await api("/api/account/transactions");
   $("history").replaceChildren();
   if (!rows.length) text($("history"), "Chưa có giao dịch.");
@@ -268,7 +327,7 @@ async function history() {
 }
 async function update() {
   await account();
-  await history();
+  await loadHistory();
   await lookup();
 }
 $("loginForm").onsubmit = (e) => {
@@ -280,7 +339,8 @@ $("loginForm").onsubmit = (e) => {
     $("login").hidden = true;
     $("workspace").hidden = false;
     $("logout").hidden = false;
-    await Promise.all([account(), history()]);
+    go("lookup");
+    await Promise.all([account(), loadHistory()]);
   });
 };
 $("lookup").elements.mssv.addEventListener("input", () => {
@@ -288,6 +348,7 @@ $("lookup").elements.mssv.addEventListener("input", () => {
   lookupVersion++;
   closeReview();
   $("fees").replaceChildren();
+  searchEmpty.hidden = !!$("lookup").elements.mssv.value.trim();
   $("notice").textContent = "";
   if ($("lookup").elements.mssv.value.trim())
     lookupTimer = setTimeout(
@@ -305,8 +366,8 @@ $("lookup").onsubmit = (e) => {
   action(lookup);
 };
 $("logout").onclick = logout;
-$("historyRefresh").onclick = () => action(history);
-$("cancelReview").onclick = closeReview;
+$("historyRefresh").onclick = () => action(loadHistory);
+$("cancelReview").onclick = () => { closeReview(); go("lookup"); };
 $("confirmPayment").onclick = () =>
   action(async () => {
     const balance = reviewAccount ? cents(reviewAccount.balance) : null,
@@ -327,6 +388,7 @@ $("confirmPayment").onclick = () =>
       if (error.status === 409) {
         closeReview();
         await Promise.allSettled([account(), lookup()]);
+        go("lookup");
       }
       throw error;
     }
@@ -335,7 +397,7 @@ $("confirmPayment").onclick = () =>
     $("paymentResult").textContent = tx.otp_sent
       ? "OTP gửi tới " + tx.email + ". Kiểm tra cả Spam."
       : "Chưa gửi được OTP: " + tx.otp_error;
-    await history();
+    await loadHistory();
   });
 $("otpForm").onsubmit = (e) => {
   e.preventDefault();
@@ -384,10 +446,9 @@ async function loadAccounts() {
 }
 $("demoToggle").onclick = () =>
   action(async () => {
-    if ($("demo").hidden) {
-      await loadAccounts();
-      $("demo").hidden = false;
-    } else $("demo").hidden = true;
+    await loadAccounts();
+    $("demo").hidden = false;
+    go("demo");
   });
 $("accounts").onchange = () => {
   const row = accountRows.find((a) => String(a.id) === $("accounts").value),
@@ -422,3 +483,6 @@ $("feeForm").onsubmit = (e) => {
     $("notice").textContent = "Đã thêm học phí.";
   });
 };
+
+go("lookup", false);
+
