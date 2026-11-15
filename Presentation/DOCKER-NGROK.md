@@ -22,7 +22,7 @@ Cài ngrok CLI từ https://ngrok.com/download/windows nếu chưa có, mở l�
 .\start_ngrok.cmd
 ```
 
-Script tự chạy 5 tiến trình Python/Uvicorn, sau đó mở ngrok trỏ Gateway local và in link HTTPS. Không gọi Docker; Docker Desktop có thể đóng. Công cụ demo bị tắt khi chia sẻ public.
+Script tự chạy 5 tiến trình Python/Uvicorn, sau đó mở ngrok trỏ Gateway local và in link HTTPS. Không gọi Docker; Docker Desktop có thể đóng. Công cụ demo mặc định bật để chuẩn bị tài khoản/học phí trong buổi trình diễn. Mọi tài khoản đã đăng nhập có thể dùng công cụ khi bật; thay đổi ghi vào Neon. Có thể đặt DEMO_ADMIN=0 trước khi chạy nếu muốn tắt.
 
 Lần đầu script đọc token từ biến NGROK_AUTHTOKEN hoặc cấu hình ngrok có sẵn; nếu chưa có thì hỏi Authtoken (ký tự ẩn), lưu .env.ngrok cho các lần sau. Lấy token tại https://dashboard.ngrok.com/get-started/your-authtoken. Token ngrok khác cấu hình Gmail. Không cần chạy run_local.py trước: launcher tự chạy app.
 

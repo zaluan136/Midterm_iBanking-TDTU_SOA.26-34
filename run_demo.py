@@ -193,7 +193,7 @@ def stop_processes(processes):
 
 def native_environment():
     env = os.environ.copy()
-    env['DEMO_ADMIN'] = '0'
+    env.setdefault('DEMO_ADMIN', '1')
     for name in ('JWT_SECRET', 'SERVICE_TOKEN', 'OTP_SECRET'):
         if not env.get(name):
             env[name] = secrets.token_urlsafe(48)
@@ -225,7 +225,7 @@ def ngrok_mode():
         processes.append(('ngrok', start_process([executable,'http','http://127.0.0.1:8000','--config',str(ROOT/'ngrok-native.yml'),'--log','stdout'], env)))
         print('\nLOCAL: http://127.0.0.1:8000/', flush=True)
         print('PUBLIC: ' + tunnel_url(), flush=True)
-        print('Python local + ngrok, KHONG dung Docker. Cong cu demo public da tat.', flush=True)
+        print('Python local + ngrok, KHONG dung Docker. Cong cu demo theo DEMO_ADMIN (mac dinh bat).', flush=True)
         print('Nhan Ctrl+C de dung ngrok va app Python.', flush=True)
         while True:
             for name, process in processes:
