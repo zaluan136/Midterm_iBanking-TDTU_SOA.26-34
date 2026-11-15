@@ -1,4 +1,4 @@
-"""One command: Docker iBanking + ngrok; Ctrl+C stops this Compose stack."""
+"""Two independent demo modes: Docker local OR native Python with ngrok."""
 import argparse
 import getpass
 import json
@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import signal
 import shutil
 import socket
 import subprocess
@@ -17,11 +18,8 @@ import urllib.error
 ROOT = Path(__file__).resolve().parent
 
 
-def compose_command(public=True):
-    command = ['docker', 'compose', '-f', 'compose.yaml']
-    if public:
-        command += ['-f', 'compose.ngrok.yaml']
-    return command
+def compose_command():
+    return ['docker', 'compose', '-f', 'compose.yaml']
 
 
 def run(command, env, **kwargs):
@@ -96,15 +94,10 @@ def tunnel_url(timeout=60):
     raise RuntimeError('Ngrok chua tao duoc link. Kiem tra token, mang va log ngrok ben duoi.')
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--local', action='store_true', help='Docker local only; enable demo tools, no ngrok')
-    args = parser.parse_args(argv)
-    public = not args.local
+def docker_mode():
     env = os.environ.copy()
-    # Explicit override for every app container, including those with their own environment map.
-    env['DEMO_ADMIN'] = '0' if public else '1'
-    command = compose_command(public)
+    env['DEMO_ADMIN'] = '1'
+    command = compose_command()
     attempted = False
     try:
         if not shutil.which('docker'):
@@ -115,20 +108,14 @@ def main(argv=None):
             if not (ROOT / relative).is_file():
                 raise RuntimeError('Thieu file: ' + relative)
         ensure_port_free(8000)
-        if public:
-            ensure_port_free(4040)
         prepare_keys()
-        if public:
-            prepare_ngrok()
         run(command + ['config', '--quiet'], env)
         print('Dang build va khoi dong Docker; lan dau can tai image va thu vien...', flush=True)
         attempted = True
         run(command + ['up', '--build', '-d', '--wait', '--wait-timeout', '180'], env)
         print('\nLOCAL: http://127.0.0.1:8000/', flush=True)
-        if public:
-            print('PUBLIC: ' + tunnel_url(), flush=True)
-            print('Link public: Cong cu demo da tat. May va Docker phai tiep tuc chay.', flush=True)
-        print('Nhan Ctrl+C de dung Docker va ngrok. Khong can go lenh down.', flush=True)
+        print('Docker local, khong chay ngrok. Cong cu demo da bat.', flush=True)
+        print('Nhan Ctrl+C de dung Docker. Khong can go lenh down.', flush=True)
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
@@ -145,6 +132,124 @@ def main(argv=None):
                 subprocess.run(command + ['stop', '--timeout', '15'], cwd=ROOT, env=env, check=False)
             except OSError:
                 print('Khong goi duoc Docker de dung. Mo Docker Desktop va dung project ibanking.', file=sys.stderr)
+
+
+def ngrok_executable():
+    found = shutil.which('ngrok')
+    if found:
+        return found
+    if os.name == 'nt':
+        alias = Path(os.getenv('LOCALAPPDATA', '')) / 'Microsoft/WindowsApps/ngrok.exe'
+        if alias.is_file():
+            return str(alias)
+    raise RuntimeError('Chua co ngrok CLI. Cai tu https://ngrok.com/download/windows, mo lai terminal roi chay lai. Khong can Docker.')
+
+
+def start_process(command, env):
+    kwargs = {'cwd': ROOT, 'env': env}
+    if os.name == 'nt':
+        kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+    return subprocess.Popen(command, **kwargs)
+
+
+def wait_app(processes, port, timeout=60):
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        for name, process in processes:
+            if process.poll() is not None:
+                raise RuntimeError(name + ' da dung; xem log phia tren.')
+        try:
+            with opener.open(f'http://127.0.0.1:{port}/health', timeout=1) as response:
+                if response.status == 200:
+                    return
+        except (OSError, urllib.error.URLError):
+            pass
+        time.sleep(0.25)
+    raise RuntimeError(f'Service cong {port} chua san sang sau {timeout}s.')
+
+
+def stop_processes(processes):
+    for _, process in reversed(processes):
+        if process.poll() is None:
+            try:
+                if os.name == 'nt':
+                    process.send_signal(signal.CTRL_BREAK_EVENT)
+                else:
+                    process.terminate()
+            except OSError:
+                pass
+    for _, process in reversed(processes):
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            if os.name == 'nt':
+                # This PID is a process launched by this script, never an arbitrary listener.
+                subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            else:
+                process.kill()
+            process.wait()
+
+
+def native_environment():
+    env = os.environ.copy()
+    env['DEMO_ADMIN'] = '0'
+    for name in ('JWT_SECRET', 'SERVICE_TOKEN', 'OTP_SECRET'):
+        if not env.get(name):
+            env[name] = secrets.token_urlsafe(48)
+    for name, port in [('auth_account',8001),('payment',8002),('tuition',8003),('otp',8004)]:
+        env[name.upper() + '_SERVICE_URL'] = f'http://127.0.0.1:{port}'
+    # Supply the saved token without modifying ngrok's global configuration.
+    for line in (ROOT / '.env.ngrok').read_text(encoding='utf-8-sig').splitlines():
+        if line.startswith('NGROK_AUTHTOKEN='):
+            env['NGROK_AUTHTOKEN'] = line.split('=', 1)[1].strip().strip('\"\x27')
+    return env
+
+
+def ngrok_mode():
+    processes = []
+    try:
+        executable = ngrok_executable()
+        for relative in ('DB/connection string.txt', '.env.gmail'):
+            if not (ROOT / relative).is_file():
+                raise RuntimeError('Thieu file: ' + relative)
+        for port in (8000,8001,8002,8003,8004,4040):
+            ensure_port_free(port)
+        prepare_ngrok()
+        env = native_environment()
+        for name, port in [('auth_account',8001),('tuition',8003),('otp',8004),('payment',8002),('gateway',8000)]:
+            process = start_process([sys.executable,'-m','uvicorn',f'services.{name}:app','--host','127.0.0.1','--port',str(port)], env)
+            processes.append((name, process))
+            wait_app(processes, port)
+        # A dedicated config fixes the inspection API port regardless of global ngrok settings.
+        processes.append(('ngrok', start_process([executable,'http','http://127.0.0.1:8000','--config',str(ROOT/'ngrok-native.yml'),'--log','stdout'], env)))
+        print('\nLOCAL: http://127.0.0.1:8000/', flush=True)
+        print('PUBLIC: ' + tunnel_url(), flush=True)
+        print('Python local + ngrok, KHONG dung Docker. Cong cu demo public da tat.', flush=True)
+        print('Nhan Ctrl+C de dung ngrok va app Python.', flush=True)
+        while True:
+            for name, process in processes:
+                if process.poll() is not None:
+                    raise RuntimeError(name + ' da dung; xem log phia tren.')
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print('\nDang dung ngrok va app...', flush=True)
+        return 0
+    except (OSError, RuntimeError) as exc:
+        print('\nKhong khoi dong duoc: ' + str(exc), file=sys.stderr, flush=True)
+        return 1
+    finally:
+        stop_processes(processes)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--ngrok', action='store_true', help='Native Python + ngrok, no Docker')
+    modes.add_argument('--local', action='store_true', help='Alias for Docker local, the default')
+    modes.add_argument('--docker', action='store_true', help='Docker local, no ngrok')
+    args = parser.parse_args(argv)
+    return ngrok_mode() if args.ngrok else docker_mode()
 
 
 if __name__ == '__main__':

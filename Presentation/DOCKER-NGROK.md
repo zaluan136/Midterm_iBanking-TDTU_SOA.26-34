@@ -1,48 +1,49 @@
-# Docker + ngrok bằng một lệnh
+# Hai phương án demo ĐỘC LẬP
 
-Mở Docker Desktop, dùng Linux containers. Tại IBanking_2 chạy:
+Chỉ chọn một cách tại một thời điểm. Cả hai dùng cùng NeonDB và Gmail đang có, nên vẫn phụ thuộc mạng/Neon/Gmail. Chúng chỉ dự phòng cho lỗi của cách chạy app hoặc chia sẻ web, không dự phòng khi DB/Gmail cùng lỗi.
+
+## A. Docker local — không dùng ngrok
+
+Mở Docker Desktop (Linux containers), tại IBanking_2:
 
 ```powershell
-.\start_demo.cmd
+.\start_docker.cmd
 ```
 
-Script tự tạo .env.docker (khóa ổn định), build app, chạy Gateway + 4 service + ngrok, đợi API sẵn sàng rồi in LOCAL và PUBLIC URL. Ngrok chạy bằng image chính thức, không cần cài ngrok riêng. Ctrl+C tự stop project; container/image được giữ cho lần sau, không xóa dữ liệu Neon. Đừng đóng cưỡng bức terminal nếu muốn script dọn phiên đúng cách.
+Script tự tạo .env.docker nếu thiếu, build/chạy 5 app container, đợi healthy và in http://127.0.0.1:8000/. Công cụ demo bật. Không cần tài khoản, token hoặc CLI ngrok. Ctrl+C tự stop container; không cần lệnh up/down.
 
-Một lần đầu: tạo tài khoản ngrok nếu chưa có, lấy Authtoken tại https://dashboard.ngrok.com/get-started/your-authtoken, dán khi script hỏi (ký tự được ẩn). Script ưu tiên token từ NGROK_AUTHTOKEN hoặc file cấu hình ngrok có sẵn rồi mới hỏi. Token lưu trong .env.ngrok, được .gitignore bỏ qua. Không phải API key Gmail và không phải ngrok API key.
+`start_demo.cmd` cũ hiện là alias cho cách A. `--local` cũng chỉ chạy Docker. Không còn chế độ Docker + ngrok.
 
-App dùng nguyên .env.gmail và DB/connection string.txt đang có. Không cần run_render.py. Dừng run_local.py trước vì dùng cùng cổng 8000. Máy cần Internet và phải bật Docker trong suốt buổi demo. Free ngrok có thể hiện trang xác nhận truy cập trước khi vào app.
+## B. App Python local + ngrok — không dùng Docker
 
-## Chỉ chạy local để chuẩn bị dữ liệu
+Cài ngrok CLI từ https://ngrok.com/download/windows nếu chưa có, mở lại terminal để nhận PATH. Dùng .venv và thư viện Python của dự án như khi chạy run_local.py.
 
 ```powershell
-.\start_demo.cmd --local
+.\start_ngrok.cmd
 ```
 
-Chế độ này chỉ chạy 5 app container, bật Công cụ demo. Chế độ mặc định có public URL tắt Công cụ demo để người truy cập không thay số dư/tài khoản. Chuẩn bị dữ liệu khi local rồi Ctrl+C, sau đó chạy lệnh mặc định để chia sẻ link.
+Script tự chạy 5 tiến trình Python/Uvicorn, sau đó mở ngrok trỏ Gateway local và in link HTTPS. Không gọi Docker; Docker Desktop có thể đóng. Công cụ demo bị tắt khi chia sẻ public.
 
-## Điều kiện trước lần đầu
+Lần đầu script đọc token từ biến NGROK_AUTHTOKEN hoặc cấu hình ngrok có sẵn; nếu chưa có thì hỏi Authtoken (ký tự ẩn), lưu .env.ngrok cho các lần sau. Lấy token tại https://dashboard.ngrok.com/get-started/your-authtoken. Token ngrok khác cấu hình Gmail. Không cần chạy run_local.py trước: launcher tự chạy app.
 
-- Docker Desktop đã cài và engine đang chạy. Script không tự cài Docker hoặc bật WSL.
-- Có Python; dùng .venv hiện có hoặc Python trên máy. run_demo.py chỉ dùng thư viện chuẩn, không cần pip install cho launcher.
-- Có .env.gmail còn quyền gửi thư và DB/connection string.txt đủ 4 kết nối.
-- Có ngrok authtoken. Nếu ngrok báo tài khoản cần xác minh, thực hiện theo dashboard chính thức.
+Ctrl+C dừng cả app và ngrok. Máy cần bật và có Internet khi chia sẻ link. Free ngrok có thể hiện trang xác nhận truy cập trước khi mở app.
 
-Nếu cổng 8000/4040 bận: dừng app/ngrok hoặc phiên demo cũ. Nếu container chưa healthy: xem log script in ra; nếu Gmail invalid_grant: cấp quyền lại local rồi chạy lại demo. Nếu DB chưa khởi tạo/migration thì xử lý theo README; script không tự sửa/seed DB khi khởi động.
+## Chuyển phương án
 
-Nếu đóng terminal cưỡng bức và container còn chạy: mở Docker Desktop, stop project ibanking, rồi chạy lại script. Đây là demo trên máy cá nhân có tunnel, không phải hosting hoạt động sau khi tắt máy.
+Đang Docker lỗi/không muốn dùng: Ctrl+C ở terminal Docker, chờ dừng rồi chạy start_ngrok.cmd. Đang ngrok lỗi: Ctrl+C, mở Docker Desktop rồi chạy start_docker.cmd. Không chạy hai script đồng thời vì cùng cổng 8000. Script sẽ báo lỗi nếu cổng đang bị giữ thay vì tự kill ứng dụng khác.
 
-## Git: chỉ phần Docker/ngrok
+Nếu chỉ cần demo local mà cả Docker/ngrok đều không dùng được, vẫn có `python run_local.py` và mở http://127.0.0.1:8000/.
+
+## Cấu hình và kiểm tra
+
+Cả hai cách dùng `.env.gmail` và `DB/connection string.txt`. Không dùng run_render.py. Docker giữ khóa ổn định trong .env.docker; nhánh Python/ngrok tạo khóa phiên mới khi chạy nếu chưa có các biến khóa trên máy. Sau restart Python cần login lại và xin OTP mới cho giao dịch chưa xác thực.
+
+Chưa build/chạy thực tế Docker/ngrok trong phiên sửa vì máy chưa tìm thấy hai CLI. Kiểm tra launcher dùng tiến trình giả để xác nhận mỗi nhánh chỉ gọi đúng công cụ của nó, dọn tiến trình khi lỗi và Ctrl+C; không gửi Gmail hay sửa DB trong kiểm tra đó.
+
+Để commit bản tách hai phương án:
 
 ```powershell
-git add Dockerfile .dockerignore compose.yaml compose.ngrok.yaml ngrok-demo.yml run_demo.py start_demo.cmd services/gateway.py Presentation/DOCKER.md Presentation/DOCKER-NGROK.md
-git commit -m "Add one-command Docker and ngrok demo"
+git add -A -- run_demo.py start_demo.cmd start_docker.cmd start_ngrok.cmd ngrok-native.yml compose.ngrok.yaml ngrok-demo.yml README.md Presentation/DOCKER.md Presentation/DOCKER-NGROK.md
+git commit -m "Separate Docker local and native ngrok demo modes"
 git push origin main
 ```
-
-Không dùng git add . nếu đang bỏ qua phần Render và các thay đổi khác.
-
-## Trạng thái kiểm tra
-
-Launcher có kiểm tra tự động bằng mô phỏng, không gọi Neon/Gmail. Cần Docker Desktop để build và thử container thực tế. Máy trong phiên chuẩn bị chưa tìm thấy Docker CLI nên chưa xác nhận chạy toàn bộ Docker/ngrok.
-
-Tài liệu chính thức: https://ngrok.com/download/docker ; https://ngrok.com/docs/gateway/agent/config/v3 ; https://docs.docker.com/reference/cli/docker/compose/up/

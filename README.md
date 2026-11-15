@@ -130,16 +130,12 @@ Kiểm tra một giao dịch thành công, OTP sai/hết hạn, không đủ s�
 Connection string, `.env*`, OAuth JSON/token, `.venv*`, `__pycache__`, file test/chẩn đoán và script cũ. App đọc cấu hình từ `services/config.py`, không phụ thuộc file test. Schema/migration, setup Gmail và seed được giữ lại để thành viên khác chạy được.
 
 
-## Chạy Docker + ngrok bằng một lệnh
+## Hai phương án demo độc lập
 
-Mở Docker Desktop rồi chạy tại thư mục dự án:
+**Docker local:** mở Docker Desktop rồi chạy `.\start_docker.cmd`. Vào http://127.0.0.1:8000/; không chạy ngrok.
 
-```powershell
-.\start_demo.cmd
-```
+**Python local + ngrok:** cài ngrok CLI, dùng .venv đã cài thư viện rồi chạy `.\start_ngrok.cmd`. Script tự chạy app và in link HTTPS, không dùng Docker. Lần đầu cần ngrok Authtoken nếu chưa cấu hình.
 
-Script tự tạo khóa local, build/chạy 5 app container và ngrok, rồi in link public. Lần đầu hỏi ngrok Authtoken nếu chưa có cấu hình; Ctrl+C tự dừng project. Dùng nguyên `.env.gmail` và `DB/connection string.txt`. Không cần `run_render.py` hoặc cấu hình hosting.
+Mỗi phương án chỉ cần một lệnh và Ctrl+C để dừng. Chỉ chạy một phương án tại một thời điểm. `start_demo.cmd` cũ mặc định chạy Docker local. Cả hai giữ nguyên DB Neon và Gmail, không dự phòng sự cố của các dịch vụ bên ngoài đó.
 
-Để chuẩn bị dữ liệu với Công cụ demo trên local: `.\start_demo.cmd --local`. Khi chạy public, Công cụ demo được tắt. Máy phải tiếp tục bật và có Internet khi chia sẻ link.
-
-Chi tiết: [Docker + ngrok](Presentation/DOCKER-NGROK.md), [Docker thủ công](Presentation/DOCKER.md). Cần Docker Desktop để build/chạy thực tế; các kiểm tra launcher mô phỏng không thay thế kiểm tra container.
+Chi tiết: [Hai phương án demo](Presentation/DOCKER-NGROK.md), [Docker thủ công](Presentation/DOCKER.md). Không cần dùng run_render.py hoặc hosting.

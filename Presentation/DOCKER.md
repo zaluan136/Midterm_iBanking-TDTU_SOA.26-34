@@ -1,4 +1,4 @@
-> Chạy nhanh Docker + ngrok bằng một lệnh: `.\start_demo.cmd`. Xem [DOCKER-NGROK.md](DOCKER-NGROK.md). Các lệnh thủ công bên dưới chỉ dùng khi cần kiểm tra.
+> Chạy Docker local bằng một lệnh: `.\start_docker.cmd`. Docker không chạy ngrok. Phương án ngrok độc lập dùng `.\start_ngrok.cmd`; xem [DOCKER-NGROK.md](DOCKER-NGROK.md).
 
 # Chạy iBanking bằng Docker Compose
 
