@@ -1,0 +1,60 @@
+name: ibanking
+x-demo-env: &demo-env
+  DEMO_ADMIN: ${DEMO_ADMIN:-0}
+x-app: &app
+  build: .
+  image: ibanking-midterm:local
+  env_file: [.env.docker]
+  environment: *demo-env
+  init: true
+  volumes:
+    - type: bind
+      source: ./DB/connection string.txt
+      target: /app/DB/connection string.txt
+      read_only: true
+      bind:
+        create_host_path: false
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 15s
+services:
+  auth-account:
+    <<: *app
+    command: [uvicorn, services.auth_account:app, --host, 0.0.0.0, --port, '8000']
+  tuition:
+    <<: *app
+    command: [uvicorn, services.tuition:app, --host, 0.0.0.0, --port, '8000']
+  otp:
+    <<: *app
+    env_file: [.env.docker, .env.gmail]
+    command: [uvicorn, services.otp:app, --host, 0.0.0.0, --port, '8000']
+  payment:
+    <<: *app
+    command: [uvicorn, services.payment:app, --host, 0.0.0.0, --port, '8000']
+    environment:
+      <<: *demo-env
+      AUTH_ACCOUNT_SERVICE_URL: http://auth-account:8000
+      TUITION_SERVICE_URL: http://tuition:8000
+      OTP_SERVICE_URL: http://otp:8000
+    depends_on:
+      auth-account: {condition: service_healthy}
+      tuition: {condition: service_healthy}
+      otp: {condition: service_healthy}
+  gateway:
+    <<: *app
+    ports: ['127.0.0.1:8000:8000']
+    environment:
+      <<: *demo-env
+      AUTH_ACCOUNT_SERVICE_URL: http://auth-account:8000
+      TUITION_SERVICE_URL: http://tuition:8000
+      PAYMENT_SERVICE_URL: http://payment:8000
+    depends_on:
+      payment: {condition: service_healthy}
+  tests:
+    <<: *app
+    profiles: [test]
+    command: [python, tests/system_test.py]
+    healthcheck: {disable: true}

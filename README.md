@@ -128,3 +128,18 @@ Kiểm tra một giao dịch thành công, OTP sai/hết hạn, không đủ s�
 ## Các file được giữ ngoài Git
 
 Connection string, `.env*`, OAuth JSON/token, `.venv*`, `__pycache__`, file test/chẩn đoán và script cũ. App đọc cấu hình từ `services/config.py`, không phụ thuộc file test. Schema/migration, setup Gmail và seed được giữ lại để thành viên khác chạy được.
+
+
+## Chạy Docker + ngrok bằng một lệnh
+
+Mở Docker Desktop rồi chạy tại thư mục dự án:
+
+```powershell
+.\start_demo.cmd
+```
+
+Script tự tạo khóa local, build/chạy 5 app container và ngrok, rồi in link public. Lần đầu hỏi ngrok Authtoken nếu chưa có cấu hình; Ctrl+C tự dừng project. Dùng nguyên `.env.gmail` và `DB/connection string.txt`. Không cần `run_render.py` hoặc cấu hình hosting.
+
+Để chuẩn bị dữ liệu với Công cụ demo trên local: `.\start_demo.cmd --local`. Khi chạy public, Công cụ demo được tắt. Máy phải tiếp tục bật và có Internet khi chia sẻ link.
+
+Chi tiết: [Docker + ngrok](Presentation/DOCKER-NGROK.md), [Docker thủ công](Presentation/DOCKER.md). Cần Docker Desktop để build/chạy thực tế; các kiểm tra launcher mô phỏng không thay thế kiểm tra container.

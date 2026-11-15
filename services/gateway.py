@@ -37,7 +37,9 @@ def stylesheet():
 async def forward(request, port):
     try:
         async with httpx.AsyncClient(timeout=120) as client:
-            target = f"http://127.0.0.1:{port}{request.url.path}"
+            service = {8001: "AUTH_ACCOUNT", 8002: "PAYMENT", 8003: "TUITION"}[port]
+            base_url = os.getenv(f"{service}_SERVICE_URL", f"http://127.0.0.1:{port}")
+            target = base_url.rstrip("/") + request.url.path
             if request.url.query:
                 target += "?" + request.url.query
             result = await client.request(

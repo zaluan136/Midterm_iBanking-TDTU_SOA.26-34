@@ -1,0 +1,16 @@
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    init: true
+    env_file: [.env.ngrok]
+    command: [http, 'http://gateway:8000', --config, /etc/ngrok-demo.yml, --log, stdout]
+    volumes:
+      - type: bind
+        source: ./ngrok-demo.yml
+        target: /etc/ngrok-demo.yml
+        read_only: true
+        bind:
+          create_host_path: false
+    ports: ['127.0.0.1:4040:4040']
+    depends_on:
+      gateway: {condition: service_healthy}

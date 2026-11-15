@@ -1,0 +1,15 @@
+*
+!requirements.txt
+!services/
+!services/*.py
+!web/
+!web/*
+!DB/
+!DB/sql/
+!DB/sql/*.sql
+!DB/migrations/
+!DB/migrations/*.sql
+!tests/
+!tests/*.py
+!apply_schema_updates.py
+!seed_demo.py

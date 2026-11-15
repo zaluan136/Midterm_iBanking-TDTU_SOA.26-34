@@ -26,3 +26,7 @@ check_schema.py
 migrate_payment.py
 services/internal_payment.py
 .publish-worktree/
+
+# Unused hosting experiment; local only
+/run_render.py
+/Presentation/RENDER.md
