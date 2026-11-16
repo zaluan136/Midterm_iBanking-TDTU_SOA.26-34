@@ -1,0 +1,11 @@
+auth_database
+postgresql://USER:PASSWORD@AUTH_HOST/neondb?sslmode=require
+
+tuition_database
+postgresql://USER:PASSWORD@TUITION_HOST/neondb?sslmode=require
+
+payment_database
+postgresql://USER:PASSWORD@PAYMENT_HOST/neondb?sslmode=require
+
+otp_database
+postgresql://USER:PASSWORD@OTP_HOST/neondb?sslmode=require

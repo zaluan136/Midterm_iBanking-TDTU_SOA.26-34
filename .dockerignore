@@ -4,11 +4,11 @@
 !services/*.py
 !web/
 !web/*
-!DB/
-!DB/sql/
-!DB/sql/*.sql
-!DB/migrations/
-!DB/migrations/*.sql
+!databases/
+!databases/sql/
+!databases/sql/*.sql
+!databases/migrations/
+!databases/migrations/*.sql
 !tests/
 !tests/*.py
 !apply_schema_updates.py

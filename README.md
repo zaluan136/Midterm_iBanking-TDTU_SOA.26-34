@@ -8,6 +8,7 @@
 
 - Đăng nhập, xem thông tin tài khoản và số dư.
 - Tra cứu học phí theo mã số sinh viên; thanh toán toàn bộ một khoản chưa trả.
+
 - Xác nhận giao dịch bằng OTP qua email, có hiệu lực 5 phút và chỉ dùng một lần.
 - Xem trạng thái, lịch sử giao dịch và nhận biên nhận qua email.
 - Bảo vệ số dư và học phí khi nhiều giao dịch được xử lý đồng thời.
@@ -29,6 +30,11 @@ Sau khi OTP hợp lệ, Payment yêu cầu Auth–Account giữ tiền, Tuition 
 
 ## Cài đặt và cấu hình
 
+Repo có hai file môi trường local: `.env.gmail` cho Gmail và `.env.docker` cho Docker. Các file `.example` tương ứng chỉ chứa giá trị mẫu; không dùng trực tiếp làm khóa thật. File mẫu kết nối PostgreSQL nằm tại `databases/connection string.example.txt`.
+
+- Gmail: chạy `setup_gmail.py` để tạo `.env.gmail` sau khi cấp quyền OAuth.
+- Docker: chạy `setup_docker.py` để tạo `.env.docker` với khóa ngẫu nhiên; `start_docker.cmd` cũng tạo file nếu chưa có. Compose lấy `DEMO_ADMIN` từ môi trường chạy Compose (mặc định `0`), còn launcher Docker đặt thành `1`.
+
 ### 1. Cài thư viện
 
 Yêu cầu Python 3.10+ và 4 database PostgreSQL. Trong PowerShell tại thư mục dự án:
@@ -42,7 +48,7 @@ Các lệnh bên dưới dùng Python trong `.venv`, không cần kích hoạt m
 
 ### 2. Cấu hình database
 
-Tạo file local `DB/connection string.txt` (Git bỏ qua), gồm tên cấu hình và URL tương ứng ở dòng kế tiếp:
+Tạo file local `databases/connection string.txt` (Git bỏ qua), gồm tên cấu hình và URL tương ứng ở dòng kế tiếp:
 
 ```text
 auth_database
@@ -61,7 +67,7 @@ postgresql://USER:PASSWORD@OTP_HOST/neondb?sslmode=require
 Dùng URL từ Neon của từng database. Có thể thay bằng biến môi trường `AUTH_DATABASE_URL`, `TUITION_DATABASE_URL`, `PAYMENT_DATABASE_URL`, `OTP_DATABASE_URL`.
 Mặc định ứng dụng dùng schema `public`; nếu toàn bộ các bảng nằm trong schema khác, đặt biến môi trường `DB_SCHEMA` tương ứng.
 
-- Database mới: chạy từng file trong `DB/sql/` trên đúng database tương ứng, rồi seed.
+- Database mới: chạy từng file trong `databases/sql/` trên đúng database tương ứng, rồi seed.
 - Database đã dùng bản cũ: chạy migration dưới đây; không chạy lại `CREATE TABLE` của schema mới.
 
 ```powershell
@@ -124,7 +130,7 @@ Chỉ dùng bản này local. JWT và các khóa service tự tạo mỗi lần 
 
 ## API chính
 
-Các endpoint hiện hành được liệt kê dưới đây. File `DB/API Specification – iBanking Midterm.pdf` mô tả thiết kế cũ, không khớp hoàn toàn với code.
+Các endpoint hiện hành được liệt kê dưới đây.
 
 | Method | URI                                 | Chức năng                                  |
 | ------ | ----------------------------------- | ------------------------------------------ |

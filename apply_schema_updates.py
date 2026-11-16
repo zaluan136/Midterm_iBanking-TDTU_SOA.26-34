@@ -4,7 +4,7 @@ from pathlib import Path
 
 from services.common import database
 
-ROOT = Path(__file__).resolve().parent / "DB" / "migrations"
+ROOT = Path(__file__).resolve().parent / "databases" / "migrations"
 MIGRATIONS = {
     "auth_database": ["auth_account_payment_reservations.sql"],
     "tuition_database": ["tuition_payment_link.sql"],

@@ -2,7 +2,9 @@
 
 from pathlib import Path
 
-CONNECTION_FILE = Path(__file__).resolve().parents[1] / "DB" / "connection string.txt"
+CONNECTION_FILE = (
+    Path(__file__).resolve().parents[1] / "databases" / "connection string.txt"
+)
 
 
 def load_connections(path=CONNECTION_FILE):

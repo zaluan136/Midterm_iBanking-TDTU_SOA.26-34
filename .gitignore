@@ -1,10 +1,12 @@
 # Local credentials and environment settings
-DB/connection string.txt
+databases/connection string.txt
 .env
 .env.*
 client_secret_*.json
 token.json
 !.env.example
+!.env.docker.example
+!.env.gmail.example
 *.tex
 # Python and editor output
 __pycache__/

@@ -9,8 +9,8 @@ x-app: &app
   init: true
   volumes:
     - type: bind
-      source: ./DB/connection string.txt
-      target: /app/DB/connection string.txt
+      source: ./databases/connection string.txt
+      target: /app/databases/connection string.txt
       read_only: true
       bind:
         create_host_path: false

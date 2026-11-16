@@ -280,7 +280,7 @@ def main():
                     "otp_database": "otp_db.sql",
                 }[name]
                 conn.execute(
-                    (ROOT / "DB" / "sql" / filename).read_text(encoding="utf-8")
+                    (ROOT / "databases" / "sql" / filename).read_text(encoding="utf-8")
                 )
             created.append(direct_url)
             os.environ[name.upper() + "_URL"] = direct_url
