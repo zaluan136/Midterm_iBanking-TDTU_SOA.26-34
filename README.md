@@ -1,5 +1,7 @@
 # iBanking - Thanh toán học phí
 
+Source: [GitHub](https://github.com/zaluan136/Midterm_iBanking-TDTU_SOA.26-34.git)
+
 Ứng dụng iBanking hỗ trợ tra cứu và thanh toán học phí trực tuyến. Người dùng xác nhận giao dịch bằng OTP qua email, sau đó theo dõi kết quả và lịch sử thanh toán.
 
 Đồ án giữa kỳ môn **Service-Oriented Architecture** được xây dựng với FastAPI, PostgreSQL và giao diện HTML, CSS, JavaScript.
@@ -64,7 +66,7 @@ otp_database
 postgresql://USER:PASSWORD@OTP_HOST/neondb?sslmode=require
 ```
 
-Dùng URL từ Neon của từng database. Có thể thay bằng biến môi trường `AUTH_DATABASE_URL`, `TUITION_DATABASE_URL`, `PAYMENT_DATABASE_URL`, `OTP_DATABASE_URL`.
+Dùng URL từ Neon của từng database. Khi chạy Python local, có thể thay file bằng các biến môi trường `AUTH_DATABASE_URL`, `TUITION_DATABASE_URL`, `PAYMENT_DATABASE_URL`, `OTP_DATABASE_URL`. Docker Compose hiện vẫn yêu cầu file `databases/connection string.txt` để mount vào container.
 Mặc định ứng dụng dùng schema `public`; nếu toàn bộ các bảng nằm trong schema khác, đặt biến môi trường `DB_SCHEMA` tương ứng.
 
 - Database mới: chạy từng file trong `databases/sql/` trên đúng database tương ứng, rồi seed.
@@ -99,6 +101,14 @@ Nhập lại đúng Gmail vừa cấp quyền. Script lưu `.env.gmail` ngoài G
 ```
 
 Mở **http://127.0.0.1:8000/**. Các cổng 8001–8004 phục vụ API, không có trang chủ. Ctrl+C dừng toàn bộ tiến trình. Sau khi đổi code/config, khởi động lại và Ctrl+F5 trình duyệt.
+
+Để chạy bằng Docker Desktop, sau khi cấu hình database và Gmail, chạy:
+
+```powershell
+.\start_docker.cmd
+```
+
+Launcher tạo `.env.docker` nếu chưa có, build image và bật công cụ demo. Nhấn Ctrl+C để dừng các container. Để xem log HTTP khi Docker đang chạy, mở terminal khác và chạy `docker compose logs -f gateway`.
 
 1. Đăng nhập và xem số dư trong mục **Tài khoản**.
 2. Nhập mã số sinh viên và chọn một khoản học phí chưa thanh toán.
@@ -135,7 +145,7 @@ Các endpoint hiện hành được liệt kê dưới đây.
 | Method | URI                                 | Chức năng                                  |
 | ------ | ----------------------------------- | ------------------------------------------ |
 | POST   | /api/auth/login                     | Đăng nhập                                  |
-| GET    | /api/account/info                   | c Thông tin và số dư                       |
+| GET    | /api/account/info                   | Thông tin và số dư                         |
 | GET    | /api/tuition/{mssv}                 | Tra cứu học phí                            |
 | POST   | /api/payments                       | Tạo giao dịch, yêu cầu gửi OTP             |
 | POST   | /api/payments/{code}/otp/resend     | Gửi lại OTP                                |

@@ -31,4 +31,4 @@ services/internal_payment.py
 
 # Unused hosting experiment; local only
 /run_render.py
-/Presentation/RENDER.md
+/presentation/RENDER.md
